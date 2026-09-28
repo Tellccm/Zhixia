@@ -26,7 +26,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
       user-select: none;
     }
-    /* html 也要给高度，百分比才有着落；否则 min-height: 100% 会退化成内容高度。 */
+    /* html 给高度，body 的百分比才有着落；但面板本身是固定尺寸，不跟着视口长。 */
     html {
       height: 100%;
     }
@@ -106,16 +106,13 @@
       color: #fcd34d;
     }
     .notice.show { display: block; }
-    /* 宠物屏要吃掉中间所有的空余高度。
-       注意不能只写 flex: 1 1 auto：外层是 min-height: 100vh，容器高度是内容撑出来的，
-       没有「剩余空间」可分，flex 就不会长。所以高度直接按视口算：
-       视口高减去顶栏、状态条、按钮区大约占掉的部分，剩下的就是屏幕。
-       calc 里有最小值，矮屏也不会被压扁。 */
+    /* 宠物屏是一块固定尺寸的屏幕，不是能无限拉长的容器。
+       之前试过按视口算高度（calc(100vh - 250px)），在长窗口里被拉得极长，所以退回固定值。
+       屏幕 400 ＋ 顶栏与状态条 90 ＋ 按钮区 140，整体约 640，正好放进楼层。 */
     .pet-screen {
       position: relative;
-      height: calc(100vh - 250px);
-      min-height: 320px;
-      flex: 1 1 auto;
+      height: 400px;
+      flex: 0 0 auto;
       background: #0c0a09;
       overflow: hidden;
       cursor: pointer;
@@ -222,8 +219,6 @@
     .char-sprite-box {
       width: 140px;
       height: 190px;
-      /* 屏幕高的时候立绘跟着长一点，矮的时候也不会被挤出画面 */
-      max-height: min(240px, 34vh);
       border-radius: 18px;
       overflow: hidden;
       border: 3px solid #b45309;
