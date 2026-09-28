@@ -549,8 +549,7 @@
     买: 3,      // 一天里能去小卖部几趟
   };
 
-  /** 摸头的冷却。两分钟一次，免得一直戳她。 */
-  const 摸头冷毫秒 = 2 * 60 * 1000;
+  /** 摸头没有冷却。限制加在心情上，见下面的 摸头日上限。 */
 
   /** 商品表。和 面板数据.ts 里的那几张表是同一批货，价钱与效果照抄。 */
   const 食物 = [
@@ -780,26 +779,38 @@
     return '“哥哥，今天外头风大不大？”';
   }
 
-  let 上次摸头 = 0;
+  /** 摸头没有冷却，随便摸。
+   *  限制加在「心情」上：摸她一天最多把心情顶上去 12 点，摸够了照样有反应，只是不再涨。 */
+  const 摸头日上限 = 12;
+  const 摸头每次 = 2;
+
+  function 今天摸头加了() {
+    const 今 = 存档().今日 ?? {};
+    if (String(今.日期 ?? '') !== 今天记号()) return 0;
+    return Number(今.摸头加过 ?? 0);
+  }
 
   function petZhixia() {
-    const 现在 = Date.now();
-    if (现在 - 上次摸头 < 摸头冷毫秒) {
-      const 余 = Math.ceil((摸头冷毫秒 - (现在 - 上次摸头)) / 1000);
-      提示('她刚被你摸过头，还在偷偷笑。' + 余 + ' 秒后再来。', 2600);
-      return;
-    }
-    上次摸头 = 现在;
     const 数据 = 读变量();
-    数据.妹妹.心情 = 钳((数据.妹妹.心情 ?? 60) + 2);
-    写变量();
+    const 剩下 = Math.max(0, 摸头日上限 - 今天摸头加了());
+    const 加 = Math.min(摸头每次, 剩下);
+
+    if (加 > 0) {
+      数据.妹妹.心情 = 钳((数据.妹妹.心情 ?? 60) + 加);
+      if (!数据.今日 || typeof 数据.今日 !== 'object') 数据.今日 = {};
+      if (String(数据.今日.日期 ?? '') !== 今天记号()) 数据.今日.日期 = 今天记号();
+      数据.今日.摸头加过 = 今天摸头加了() + 加;
+      写变量();
+    }
 
     const 心 = document.getElementById('pet-heart');
     心.classList.remove('跳');
     void 心.offsetWidth;
     心.classList.add('跳');
 
-    document.getElementById('speech-bubble').innerText = 闲话[Math.floor(Math.random() * 闲话.length)];
+    // 摸够了也照样有反应，只是话不一样。
+    document.getElementById('speech-bubble').innerText =
+      加 > 0 ? 闲话[Math.floor(Math.random() * 闲话.length)] : '她被你摸得有点不好意思了：“哥，你摸够没有呀。”';
     updateUI();
   }
 
@@ -1007,8 +1018,11 @@
       document.getElementById('no-art').style.display = 'flex';
     });
     // 她隔一会儿自己说一句，按当前状态挑。桌面养成里那种「她在过日子」的感觉靠这个。
+    // 摸头之后四秒内不改她的话，免得刚摸完就被顶掉。
+    let 上次说话 = 0;
     window.setInterval(() => {
-      if (Date.now() - 上次摸头 < 4000) return;
+      if (Date.now() - 上次说话 < 25000) return;
+      上次说话 = Date.now();
       document.getElementById('speech-bubble').innerText = 此刻的话();
     }, 25000);
   }
