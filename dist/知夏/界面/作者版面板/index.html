@@ -72,16 +72,15 @@
       color: #fef3c7;
       white-space: nowrap;
     }
-    .date-badge .seal {
-      font-size: 10px;
-      color: #b45309;
-      letter-spacing: 0.1em;
-    }
+    /* 现实时钟是这块面板上最该看清的一个数：她在卡里过日子，你在现实里过。 */
     .clock-badge {
-      font-size: 11px;
-      color: #a8a29e;
+      font-size: 19px;
+      font-weight: bold;
+      color: #fde68a;
       font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
       white-space: nowrap;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
     }
     .money-badge {
       display: flex;
@@ -738,7 +737,6 @@
 <div class="panel-container">
   <div class="top-bar">
     <div class="date-badge">
-      <span class="seal">剧本</span>
       <span id="txt-date">1年 9月1日 · 傍晚</span>
     </div>
     <span class="clock-badge" id="txt-clock"></span>
@@ -1884,15 +1882,17 @@
 
     最近一次结账 = 单子.join('、') + '，一共 ￥' + 账.合计;
     存车([]);
+    // 货架余量最多列三样，多了就说「等几样」，不然一条提示能铺满半屏。
+    const 余量话 = 剩余.length > 3 ? 剩余.slice(0, 3).join('　') + '　等 ' + 剩余.length + ' 样' : 剩余.join('　');
     提示(
       '结账：' + 单子.join('、') + '。' +
         变化段('钱', 前钱, 数据.钱) +
         (心情加成 > 0 ? '，' + 变化段('心情', 前心, 数据.妹妹.心情) : '') +
         '。' +
         (衣服.length ? '衣服挂进衣柜了：' + 衣服.join('、') + '。' : '') +
-        '货架上现在：' + 剩余.join('　') +
+        '货架：' + 余量话 +
         '。下次进货 ' + 下次进货话() + '。',
-      7600,
+      7200,
       '好',
     );
     飘字('txt-money', '−￥' + 账.合计, '减');
@@ -1906,10 +1906,11 @@
     renderShop();
   }
 
-  /** 打开面板与定时检查都走这里：到点了就补货，并报一句。 */
+  /** 打开面板与定时检查都走这里：到点了就补货，并报一句。
+   *  只报补了几样，不把整张货架念一遍：一样一样列出来太占地方，也没人看。 */
   function 看进货(报不报) {
     const 补过 = 进货检查();
-    if (补过.length && 报不报) 提示('王婶上货了：' + 补过.join('、') + '。货架补满。', 6000, '好');
+    if (补过.length && 报不报) 提示('王婶上货了，货架补满（补了 ' + 补过.length + ' 样）。', 4200, '好');
     return 补过;
   }
 
