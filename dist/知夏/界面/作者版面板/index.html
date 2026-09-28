@@ -754,7 +754,6 @@
   /** 摸她的时候她说的话。都是八岁这一年的口气：有话直说，会问哥哥吃没吃、冷不冷。 */
   const 摸头的话 = [
     '“哥哥！你手真暖和，今天在外头吹冷风冻着没？”',
-    '“嘿嘿……哥哥的手上有茧，扎扎的。”',
     '“哥哥你回来啦。我一直听着楼道的动静呢。”',
     '“我今天把碗都擦干净了，你摸摸，一点油都没有。”',
     '“哥哥别摸了我头发，我刚梳好马尾的……好吧，再摸一下。”',
@@ -811,6 +810,29 @@
 
   function 抽(表) {
     return 表[Math.floor(Math.random() * 表.length)];
+  }
+
+  /** 她攒下的话。挑走一句就删掉，所以她攒过的话一辈子只说一次。 */
+  function 挑一句待说话() {
+    const 数据 = 读变量();
+    const 存着 = 数据.妹妹?.待说话;
+    if (!存着 || typeof 存着 !== 'object') return null;
+    const 键们 = Object.keys(存着).filter(键 => String(存着[键] ?? '').trim());
+    if (!键们.length) return null;
+
+    const 键 = 抽(键们);
+    const 话 = String(存着[键]).trim();
+    delete 存着[键];
+    写变量();
+    return 话;
+  }
+
+  /** 把攒着的话说出来。她讲完就把这一句从变量里删掉。 */
+  function 讲攒下的话() {
+    const 话 = 挑一句待说话();
+    if (!话) return false;
+    document.getElementById('speech-bubble').innerText = 话;
+    return true;
   }
 
   /** 按她的状态挑一句。病着她会瞒，饿着她会让你先吃，这是这个人的做法。 */
@@ -1064,12 +1086,21 @@
     if (面) 面.addEventListener('error', () => {
       document.getElementById('no-art').style.display = 'flex';
     });
+
+    // 一打开就先让她把攒着的话讲出来。这句是正文那头 AI 在她独处时记下的，
+    // 挑走一句就删掉，所以攒过的话只会说一次。
+    let 正在讲攒的话 = 讲攒下的话();
+
     // 她隔一会儿自己说一句，按当前状态挑。桌面养成里那种「她在过日子」的感觉靠这个。
-    // 摸头之后四秒内不改她的话，免得刚摸完就被顶掉。
-    let 上次说话 = 0;
+    let 上次说话 = Date.now();
     window.setInterval(() => {
       if (Date.now() - 上次说话 < 25000) return;
       上次说话 = Date.now();
+      // 攒着的话刚讲完那一会儿不顶掉它，让它多留一轮
+      if (正在讲攒的话) {
+        正在讲攒的话 = false;
+        return;
+      }
       document.getElementById('speech-bubble').innerText = 此刻的话();
     }, 25000);
   }
