@@ -108,6 +108,23 @@
       min-height: 240px;
       background: #0c0a09;
       overflow: hidden;
+      cursor: pointer;
+    }
+    /* 她站的位置随心情挪：心情好往前站，不好就往墙边缩。位置规则也写在下面的 .zhixia-char-wrap 里。 */
+    .pet-heart {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      font-size: 16px;
+      color: #f472b6;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .pet-heart.跳 { animation: 浮起 1.1s ease-out; }
+    @keyframes 浮起 {
+      0% { opacity: 0; transform: translate(-50%, 6px) scale(0.7); }
+      30% { opacity: 1; transform: translate(-50%, -6px) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -26px) scale(0.9); }
     }
     .screen-bg {
       width: 100%;
@@ -162,7 +179,11 @@
       align-items: center;
       cursor: pointer;
       z-index: 2;
+      transition: bottom 0.6s ease;
     }
+    .zhixia-char-wrap.低落 { bottom: 30px; }
+    .zhixia-char-wrap.低落 .char-sprite-box { filter: brightness(0.78) saturate(0.8); }
+    .zhixia-char-wrap.高兴 { bottom: 6px; }
     .speech-bubble {
       background: rgba(255, 251, 235, 0.95);
       color: #292524;
@@ -398,7 +419,8 @@
 
     <div class="screen-corner" id="txt-scene">她在家等你</div>
 
-    <div class="zhixia-char-wrap" onclick="petZhixia()">
+    <div class="zhixia-char-wrap" id="char-wrap" onclick="petZhixia()" title="摸摸她的头">
+      <div class="pet-heart" id="pet-heart">♥</div>
       <div class="speech-bubble" id="speech-bubble">“哥哥！你回来啦……”</div>
       <div class="char-sprite-box">
         <img src="zhixia_character_art.jpg" alt="知夏" id="char-art">
@@ -454,9 +476,9 @@
       <span class="icon">阅</span>
       <span>数据</span>
     </button>
-    <button class="act-btn green" onclick="说一句('我往厨房走了一趟，看看锅里还有什么。')">
-      <span class="icon">看</span>
-      <span>转转</span>
+    <button class="act-btn green" onclick="歇一会儿()">
+      <span class="icon">歇</span>
+      <span>歇口气</span>
     </button>
   </div>
 
@@ -531,7 +553,20 @@
   const 起始年龄 = 8;
   const 一年天数 = 365;
   const 时段表 = ['清晨', '上午', '下午', '傍晚', '夜里', '深夜'];
-  const 一天能陪几次 = 1;
+
+  /**
+   * 一天的互动总量。像桌面养成那样：次数很少，用完就得等真实时间过去。
+   * 这些数就是「限制状态栏的游玩」的地方，比发不发消息有用。
+   */
+  const 上限 = {
+    陪: 2,      // 一天里能坐下来陪她几次
+    喂: 4,      // 一天里能喂几回
+    药: 3,      // 一天里能用几回药与照顾
+    买: 3,      // 一天里能去小卖部几趟
+  };
+
+  /** 摸头的冷却。两分钟一次，免得一直戳她。 */
+  const 摸头冷毫秒 = 2 * 60 * 1000;
 
   /** 商品表。和 面板数据.ts 里的那几张表是同一批货，价钱与效果照抄。 */
   const 食物 = [
@@ -608,40 +643,16 @@
     提示.计时 = window.setTimeout(() => 框.classList.remove('show'), 毫秒 || 4200);
   }
 
-  /* ── 把面板上的动作送进正文 ─────────────────────────
+  /* ── 面板上的动作 ─────────────────────────
    *
-   * 这是「代入感」的关键一步：面板上做的事不能只改数字，还要变成正文里的一句话，
-   * 让 AI 接着写下去。所以每个动作都：先改变量，再往聊天里写一句第一人称的话，然后触发生成。
+   * 桌面养成游戏的做法：点一下，她当场有反应，事情就算做完了。
+   * 这里不往聊天里写消息，也不触发生成。正文仍旧由玩家自己说话推进。
    *
-   * 时间不受影响：这里从不改日历。日子只由真实时间推。
+   * 限制靠三样，不靠「发不发消息」：
+   * 1. 东西：喂她要有饭，用药要有药，买要花钱。柜子空了就得先出工。
+   * 2. 次数：一天能喂几回、能用几回药、能去几趟小卖部，用完就得等真实时间过一天。
+   * 3. 冷却：摸头两分钟一次。
    */
-  let 正在发言 = false;
-
-  async function 做一件(叙述, 紧凑话) {
-    if (正在发言) {
-      提示('上一件还在写，等它写完。', 2200);
-      return;
-    }
-    if (typeof createChatMessages !== 'function' || typeof triggerSlash !== 'function') {
-      提示(紧凑话 + '（这条面板单独打开时不能往正文里写，进酒馆就好。）', 6000);
-      return;
-    }
-    正在发言 = true;
-    try {
-      await createChatMessages([{ role: 'user', message: 叙述 }]);
-      await triggerSlash('/trigger');
-      提示(紧凑话);
-    } catch (错误) {
-      提示('没能写进正文：' + (错误 && 错误.message ? 错误.message : 错误), 6000);
-    } finally {
-      正在发言 = false;
-    }
-  }
-
-  /** 给「转转」这类不带状态变化的按钮用。 */
-  function 说一句(叙述) {
-    做一件(叙述, '把这一步交给正文了。');
-  }
 
   /* ── 工具 ───────────────────────────────── */
 
@@ -651,17 +662,20 @@
 
   function 今天记号() {
     const 时 = 存档().时间 ?? {};
-    return (时.年 ?? 1) + '-' + (时.月 ?? 1) + '-' + (时.日 ?? 1);
+    return (时.年 ?? 1) + '-' + (时.月 ?? 3) + '-' + (时.日 ?? 1);
   }
 
-  /** 今天还能陪几次。跟出工抢的是同一份时间。 */
+  /** 今天各自的余量。额度只在真实时间跨过一天之后回满。 */
   function 今日额度() {
-    const 数据 = 存档();
-    const 今 = 数据.今日 ?? {};
-    if (String(今.日期 ?? '') !== 今天记号()) return { 陪: 一天能陪几次, 出工: 1 };
+    const 今 = 存档().今日 ?? {};
+    const 换天 = String(今.日期 ?? '') !== 今天记号();
+    const 用过 = 项 => (换天 ? 0 : Number(今[项] ?? 0));
     return {
-      陪: Math.max(0, 一天能陪几次 - Number(今.陪过 ?? 0)),
-      出工: Math.max(0, 1 - Number(今.出过工 ?? 0)),
+      陪: Math.max(0, 上限.陪 - 用过('陪过')),
+      喂: Math.max(0, 上限.喂 - 用过('喂过')),
+      药: Math.max(0, 上限.药 - 用过('药过')),
+      买: Math.max(0, 上限.买 - 用过('买过')),
+      出工: Math.max(0, 1 - 用过('出过工')),
     };
   }
 
@@ -671,7 +685,9 @@
     if (String(数据.今日.日期 ?? '') !== 今天记号()) {
       数据.今日.日期 = 今天记号();
       数据.今日.陪过 = 0;
-      数据.今日.哄睡过 = 0;
+      数据.今日.喂过 = 0;
+      数据.今日.药过 = 0;
+      数据.今日.买过 = 0;
       数据.今日.出过工 = 0;
     }
     数据.今日[项] = Number(数据.今日[项] ?? 0) + 1;
@@ -698,7 +714,7 @@
     const 哥 = 数据.哥哥 ?? {};
 
     document.getElementById('txt-date').innerText =
-      (时.年 ?? 1) + '年 ' + (时.月 ?? 1) + '月' + (时.日 ?? 1) + '日 · ' + (时.时段 ?? '傍晚') + ' · ' + (时.季节 ?? '秋');
+      (时.年 ?? 1) + '年 ' + (时.月 ?? 3) + '月' + (时.日 ?? 1) + '日 · ' + (时.时段 ?? '傍晚') + ' · ' + (时.季节 ?? '春');
     document.getElementById('txt-money').innerText = 数据.钱 ?? 0;
     document.getElementById('val-hunger').innerText = 妹.饥饿 ?? 0;
     document.getElementById('bar-hunger').style.width = (妹.饥饿 ?? 0) + '%';
@@ -714,8 +730,19 @@
     标签.style.display = 病 !== '无' ? 'block' : 'none';
     标签.innerText = 病 + '中';
 
+    // 她站的位置与灯下的脸色随心情变。这是「活着」的那点意思。
+    const 心情 = Number(妹.心情 ?? 60);
+    const 身 = document.getElementById('char-wrap');
+    if (身) {
+      身.classList.toggle('低落', 心情 < 35 || 病 !== '无');
+      身.classList.toggle('高兴', 心情 >= 75 && 病 === '无');
+    }
+
+    // 角落那行字报的是今天还剩多少次，玩家扫一眼就知道还能做什么。
+    const 额度 = 今日额度();
     document.getElementById('txt-scene').innerText =
-      哥.今日已打工 === 1 ? '他今天已经出过一次工了' : '她在家等你';
+      '今天还剩：陪 ' + 额度.陪 + ' · 喂 ' + 额度.喂 + ' · 照顾 ' + 额度.药 + ' · 出门 ' + 额度.买 +
+      (额度.出工 > 0 ? ' · 出工 ' + 额度.出工 : ' · 今天已出工');
 
     const 面 = document.getElementById('char-art');
     if (面 && 面.complete && 面.naturalWidth === 0) {
@@ -750,11 +777,66 @@
     '“哥哥，楼下王婶问我你最近忙啥呢。”',
   ];
 
+  /** 她的状态决定她说什么。这样不用写正文，面板上也能看出她过得好不好。 */
+  function 此刻的话() {
+    const 妹 = 存档().妹妹 ?? {};
+    const 饿 = Number(妹.饥饿 ?? 70);
+    const 心情 = Number(妹.心情 ?? 60);
+    const 病 = String(妹.病症 ?? '无');
+    if (病 !== '无') {
+      return '“哥……我没事，多喝点热水就好了，别花钱买药。”';
+    }
+    if (饿 < 25) {
+      return '“锅里的饭我热了两回了。我不饿，等你回来一起吃。”';
+    }
+    if (心情 < 35) {
+      return '“今天作业写完了，碗也洗了。你……回来得晚吗？”';
+    }
+    if (心情 >= 75) {
+      return '“哥哥！你回来啦！今天知夏有乖乖听话。”';
+    }
+    return '“哥哥，今天外头风大不大？”';
+  }
+
+  let 上次摸头 = 0;
+
   function petZhixia() {
+    const 现在 = Date.now();
+    if (现在 - 上次摸头 < 摸头冷毫秒) {
+      const 余 = Math.ceil((摸头冷毫秒 - (现在 - 上次摸头)) / 1000);
+      提示('她刚被你摸过头，还在偷偷笑。' + 余 + ' 秒后再来。', 2600);
+      return;
+    }
+    上次摸头 = 现在;
     const 数据 = 读变量();
     数据.妹妹.心情 = 钳((数据.妹妹.心情 ?? 60) + 2);
     写变量();
+
+    const 心 = document.getElementById('pet-heart');
+    心.classList.remove('跳');
+    void 心.offsetWidth;
+    心.classList.add('跳');
+
     document.getElementById('speech-bubble').innerText = 闲话[Math.floor(Math.random() * 闲话.length)];
+    updateUI();
+  }
+
+  /** 一天的活干完了，坐下来歇口气。回一点体力，没有次数限制，但不能一直歇。 */
+  let 上次歇 = 0;
+  function 歇一会儿() {
+    const 现在 = Date.now();
+    if (现在 - 上次歇 < 30 * 60 * 1000) {
+      const 余 = Math.ceil((30 * 60 * 1000 - (现在 - 上次歇)) / 60000);
+      提示('刚歇过。' + 余 + ' 分钟后再歇。', 3000);
+      return;
+    }
+    上次歇 = 现在;
+    const 数据 = 读变量();
+    const 前 = Number(数据.哥哥.体力 ?? 0);
+    数据.哥哥.体力 = 钳(前 + 12);
+    写变量();
+    document.getElementById('speech-bubble').innerText = '你在床边坐了会儿。' + 此刻的话();
+    提示('歇了一会儿，体力 +' + (数据.哥哥.体力 - 前) + '。');
     updateUI();
   }
 
@@ -804,16 +886,19 @@
     if (Number(数据.物品?.[名]?.数量 ?? 0) <= 0) return;
     const 货 = 食物.find(x => x.名 === 名);
     if (!货) return;
+    if (今日额度().喂 <= 0) {
+      提示('今天已经喂过 ' + 上限.喂 + ' 回了。她肚子饱着，等明天再说。', 3600);
+      return;
+    }
     扣一个(名);
     数据.妹妹.饥饿 = 钳((数据.妹妹.饥饿 ?? 70) + 货.饥饿);
     数据.妹妹.心情 = 钳((数据.妹妹.心情 ?? 60) + 货.心情);
+    记今天的账('喂过');
     写变量();
     document.getElementById('speech-bubble').innerText = '知夏小口吃完了「' + 名 + '」：“哥哥，真好吃，你也吃一点！”';
-    提示('喂了她' + 名 + '，饱食 +' + 货.饥饿 + '。');
+    提示('喂了她' + 名 + '，饱食 +' + 货.饥饿 + '。今天还能喂 ' + 今日额度().喂 + ' 回。');
     updateUI();
     renderFeed();
-    closeDialog();
-    做一件('我把' + 名 + '端到她面前，看她吃完。', '这一步已经交给正文了。');
   }
 
   function renderCare() {
@@ -848,14 +933,13 @@
     if (货.治 && String(数据.妹妹.病症 ?? '无') === 货.治 && 数据.妹妹.健康 >= 85) {
       数据.妹妹.病症 = '无';
     }
+    记今天的账('药过');
     写变量();
     document.getElementById('speech-bubble').innerText =
       '知夏用了「' + 名 + '」，小声说：“哥哥不用替我花钱买药，知夏已经好受很多啦。”';
-    提示('用了' + 名 + '，健康 +' + 货.健康 + '。');
+    提示('用了' + 名 + '，健康 +' + 货.健康 + '。今天还能照顾 ' + 今日额度().药 + ' 回。');
     updateUI();
     renderCare();
-    closeDialog();
-    做一件('我给知夏用了' + 名 + '。', '这一步已经交给正文了。');
   }
 
   function renderWork() {
@@ -912,15 +996,18 @@
   function buy(名, 价) {
     const 数据 = 读变量();
     if (Number(数据.钱 ?? 0) < 价) return;
+    if (今日额度().买 <= 0) {
+      提示('今天已经去过 ' + 上限.买 + ' 趟小卖部了。王婶也该关门了。', 3600);
+      return;
+    }
     数据.钱 = Number(数据.钱) - 价;
     if (!数据.物品[名]) 数据.物品[名] = { 数量: 0, 类别: '食物' };
     数据.物品[名].数量 = Number(数据.物品[名].数量) + 1;
+    记今天的账('买过');
     写变量();
-    提示('买了' + 名 + '，花了 ' + 价 + ' 元。');
+    提示('买了' + 名 + '，花了 ' + 价 + ' 元。今天还能去 ' + 今日额度().买 + ' 趟。');
     updateUI();
     renderShop();
-    closeDialog();
-    做一件('我下楼去王婶那儿买了' + 名 + '，花' + 价 + '块。', '这一步已经交给正文了。');
   }
 
   function renderPet() {
@@ -951,7 +1038,7 @@
 
   function 陪她(名, 心情, 依赖) {
     if (今日额度().陪 <= 0) {
-      提示('今天已经陪过她了。想再多陪，得等正文里过一天。');
+      提示('今天已经陪过她 ' + 上限.陪 + ' 回了。他一天就这么点时间，等明天。', 3600);
       return;
     }
     const 数据 = 读变量();
@@ -960,10 +1047,9 @@
     记今天的账('陪过');
     写变量();
     document.getElementById('speech-bubble').innerText = '你' + 名 + '。她话多了起来，说到一半自己先笑了。';
-    提示('你' + 名 + '。今天的时间用掉了一次。');
+    提示('你' + 名 + '。今天还能陪 ' + 今日额度().陪 + ' 回。');
     updateUI();
-    closeDialog();
-    做一件('我' + 名 + '。', '这一步已经交给正文了。');
+    renderPet();
   }
 
   function renderSync() {
@@ -977,11 +1063,17 @@
     updateUI();
     现实时钟();
     window.setInterval(现实时钟, 20000);
+    // 变量可能被正文那头的 AI 改，也可能被挂机脚本改，所以定期重读一次
     window.setInterval(updateUI, 3000);
     const 面 = document.getElementById('char-art');
     if (面) 面.addEventListener('error', () => {
       document.getElementById('no-art').style.display = 'flex';
     });
+    // 她隔一会儿自己说一句，按当前状态挑。桌面养成里那种「她在过日子」的感觉靠这个。
+    window.setInterval(() => {
+      if (Date.now() - 上次摸头 < 4000) return;
+      document.getElementById('speech-bubble').innerText = 此刻的话();
+    }, 25000);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', 起手);
