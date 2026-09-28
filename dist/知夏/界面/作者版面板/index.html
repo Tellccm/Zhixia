@@ -396,6 +396,74 @@
       line-height: 1.6;
       padding: 4px 2px 10px;
     }
+    /* ── 反馈层 ───────────────────────────────
+       提示条按类型变色，数值改动在状态条旁边飘一下，条本身亮一下。
+       点一下做完一件事，玩家要能立刻看出「哪儿变了、变了多少」。 */
+    .notice.好 { color: #6ee7b7; border-bottom-color: #065f46; background: #052e21; }
+    .notice.差 { color: #fca5a5; border-bottom-color: #7f1d1d; background: #2a0f0f; }
+    .vitals-bar { position: relative; }
+    .floater {
+      position: absolute;
+      font-size: 12px;
+      font-weight: bold;
+      pointer-events: none;
+      white-space: nowrap;
+      animation: 飘字 1.2s ease-out forwards;
+    }
+    .floater.加 { color: #6ee7b7; }
+    .floater.减 { color: #fca5a5; }
+    @keyframes 飘字 {
+      0% { opacity: 0; transform: translateY(5px); }
+      20% { opacity: 1; transform: translateY(-2px); }
+      100% { opacity: 0; transform: translateY(-24px); }
+    }
+    .progress-fill.变 { animation: 亮一下 0.75s ease-out; }
+    @keyframes 亮一下 { 0% { filter: brightness(2.2); } 100% { filter: brightness(1); } }
+    .rest-hint { font-size: 11px; color: #a8a29e; text-align: right; padding: 3px 2px 0; min-height: 15px; }
+    /* 购物车：贴在买东西弹窗底部，一直看得见。 */
+    .cart-strip {
+      flex: 0 0 auto;
+      border-top: 1.5px solid #44403c;
+      margin-top: 10px;
+      padding-top: 10px;
+    }
+    .cart-line { font-size: 11.5px; color: #e7e5e4; line-height: 1.75; min-height: 20px; }
+    .cart-line .空 { color: #78716c; }
+    .cart-total { font-size: 12.5px; color: #fcd34d; font-weight: bold; margin: 5px 0 8px; }
+    .cart-total .差 { color: #fca5a5; font-weight: normal; }
+    .cart-btns { display: flex; gap: 8px; }
+    .cart-btns button { flex: 1; }
+    .cart-btn {
+      background: #d97706;
+      border: none;
+      color: #000;
+      font-weight: bold;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .cart-btn.plain { background: #44403c; color: #e7e5e4; font-weight: normal; }
+    .cart-btn:disabled { background: #57534e; color: #a8a29e; cursor: not-allowed; }
+    .item-card.在车里 { border-color: #d97706; background: #332a1f; }
+    .qty { display: flex; align-items: center; gap: 5px; }
+    .qty-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      border: 1px solid #57534e;
+      background: #292524;
+      color: #f5f5f4;
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .qty-num { min-width: 20px; text-align: center; font-size: 13px; color: #fcd34d; font-weight: bold; }
+    .小计 { font-size: 11px; color: #fcd34d; }
+    .receipt { font-size: 11px; color: #a8a29e; line-height: 1.7; padding: 6px 2px 0; border-top: 1px dashed #44403c; margin-top: 8px; }
+    .receipt b { color: #fcd34d; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
   </style>
 </head>
@@ -482,6 +550,7 @@
       <span>歇口气</span>
     </button>
   </div>
+  <div class="rest-hint" id="rest-hint"></div>
 
   <!-- 喂食弹窗 -->
   <div class="sub-dialog" id="dlg-feed">
@@ -510,13 +579,21 @@
     <div class="dialog-body" id="work-list"></div>
   </div>
 
-  <!-- 买东西弹窗 -->
+  <!-- 买东西弹窗：先加进车，看着合计，再一起结账。 -->
   <div class="sub-dialog" id="dlg-shop">
     <div class="dialog-header">
       <span class="dialog-title">王婶小卖部与菜市</span>
       <button class="close-btn" onclick="closeDialog()">✕</button>
     </div>
     <div class="dialog-body" id="shop-list"></div>
+    <div class="cart-strip">
+      <div class="cart-line" id="cart-line"></div>
+      <div class="cart-total" id="cart-total"></div>
+      <div class="cart-btns">
+        <button class="cart-btn" id="cart-pay" onclick="结算()">结账</button>
+        <button class="cart-btn plain" onclick="清空车()">清空</button>
+      </div>
+    </div>
   </div>
 
   <!-- 一天的活干完了，坐下来歇口气。回一点体力，半小时一次，不能一直歇。 -->
@@ -535,8 +612,8 @@
   const 变量选项 = { type: 'message', message_id: (typeof getCurrentMessageId === 'function' ? getCurrentMessageId() : -1) };
 
   /** 和脚本、Schema 保持一致的常量。改这里就要改 schema.ts。 */
-  const 起始年龄 = 8;
-  const 一年天数 = 365;
+  const 起始年龄 = 9;
+  const 一年天数 = 360;
   const 时段表 = ['清晨', '上午', '下午', '傍晚', '夜里', '深夜'];
 
   /**
@@ -551,22 +628,22 @@
 
   /** 摸头没有冷却。限制加在心情上，见下面的 摸头日上限。 */
 
-  /** 商品表。和 面板数据.ts 里的那几张表是同一批货，价钱与效果照抄。 */
-  const 食物 = [
-    { 名: '热汤挂面', 价: 3, 饥饿: 25, 心情: 6 },
-    { 名: '家常热饭', 价: 0, 饥饿: 20, 心情: 4 },
-    { 名: '大白兔奶糖', 价: 1, 饥饿: 5, 心情: 12 },
+  /** 货架。和 面板数据.ts 是同一批货，价钱与效果照抄。
+   *  一类货只在这里定义一次：喂食、照料、买东西三个弹窗都从这张表取，改价只改这里。 */
+  const 货架 = [
+    { 名: '热汤挂面', 价: 3, 类: '食物', 饥饿: 25, 心情: 6, 说明: '锅里现下的，热乎' },
+    { 名: '家常热饭', 价: 0, 类: '食物', 饥饿: 20, 心情: 4, 说明: '家里的饭，留着给她' },
+    { 名: '大白兔奶糖', 价: 1, 类: '食物', 饥饿: 5, 心情: 12, 说明: '一颗能甜半天' },
+    { 名: '温开水', 价: 0, 类: '药品', 健康: 5, 心情: 3, 说明: '不花钱，她总说多喝热水就好' },
+    { 名: '湿毛巾', 价: 0, 类: '药品', 健康: 8, 治: '发烧', 说明: '敷额头，家里现成的' },
+    { 名: '退烧片', 价: 4, 类: '药品', 健康: 30, 治: '发烧', 说明: '烧到三十八度以上才吃' },
+    { 名: '灯泡', 价: 10, 类: '杂项', 说明: '客厅那盏闪了半个月' },
+    { 名: '洗衣粉', 价: 14, 类: '杂项', 说明: '一大袋，能用很久' },
+    { 名: '橡皮筋', 价: 3, 类: '杂项', 说明: '柜门松了，勒一根就好' },
   ];
-  const 药品 = [
-    { 名: '温开水', 价: 0, 健康: 5, 心情: 3 },
-    { 名: '湿毛巾', 价: 0, 健康: 8, 治: '发烧' },
-    { 名: '退烧片', 价: 4, 健康: 30, 治: '发烧' },
-  ];
-  const 市集 = [
-    { 名: '热汤挂面', 价: 3 },
-    { 名: '大白兔奶糖', 价: 1 },
-    { 名: '退烧片', 价: 4 },
-  ];
+  const 食物 = 货架.filter(货 => 货.类 === '食物');
+  const 药品 = 货架.filter(货 => 货.类 === '药品');
+  const 类别顺序 = ['食物', '药品', '杂项'];
 
   /** 家里有的、这两张表里也认得的货。 */
   function 家里的(表) {
@@ -618,12 +695,59 @@
     document.getElementById('link-error').classList.remove('show');
   }
 
-  function 提示(话, 毫秒) {
+  /* 提示分三种调子：好（做成了）、差（做不成，附原因）、常（中性回执）。 */
+  function 提示(话, 毫秒, 调) {
     const 框 = document.getElementById('notice');
+    框.className = 'notice' + (调 === '好' ? ' 好' : 调 === '差' ? ' 差' : '');
     框.textContent = 话;
+    void 框.offsetWidth;
     框.classList.add('show');
     window.clearTimeout(提示.计时);
     提示.计时 = window.setTimeout(() => 框.classList.remove('show'), 毫秒 || 4200);
+  }
+
+  /* ── 反馈的小零件 ─────────────────────────
+   *
+   * 每次改动都要落成看得见的东西：数字飘一下、条亮一下、提示条报出「从多少到多少」。
+   * 面板上的动作不发消息，玩家就靠这些判断自己刚才做了什么。
+   */
+
+  /** 在某个数字旁边飘一个 +N / -N。 */
+  function 飘字(锚点id, 文本, 正负) {
+    const 锚 = document.getElementById(锚点id);
+    if (!锚 || !锚.parentElement) return;
+    const 层 = 锚.parentElement;
+    if (window.getComputedStyle(层).position === 'static') 层.style.position = 'relative';
+    const 泡 = document.createElement('span');
+    泡.className = 'floater ' + (正负 === '减' ? '减' : '加');
+    泡.textContent = 文本;
+    泡.style.left = 锚.offsetLeft + 锚.offsetWidth + 4 + 'px';
+    泡.style.top = 锚.offsetTop - 2 + 'px';
+    层.appendChild(泡);
+    window.setTimeout(() => 泡.remove(), 1300);
+  }
+
+  /** 状态条亮一下，让眼睛知道是这一条动了。 */
+  function 亮条(id) {
+    const 条 = document.getElementById(id);
+    if (!条) return;
+    条.classList.remove('变');
+    void 条.offsetWidth;
+    条.classList.add('变');
+    window.setTimeout(() => 条.classList.remove('变'), 800);
+  }
+
+  /** 把一次改动说成人话：饱食 +18（70→88）。没变就只报当前值。 */
+  function 变化段(标签, 前, 后) {
+    const 差 = Math.round(Number(后) - Number(前));
+    if (!差) return 标签 + ' ' + 后 + '（没变）';
+    return 标签 + ' ' + (差 > 0 ? '+' : '') + 差 + '（' + 前 + '→' + 后 + '）';
+  }
+
+  /** 一次动作的完整回执：改了哪几项、还剩什么额度。 */
+  function 回执(段们, 尾巴) {
+    const 有值的 = 段们.filter(Boolean);
+    return 有值的.join('，') + (尾巴 ? '。' + 尾巴 : '');
   }
 
   /* ── 面板上的动作 ─────────────────────────
@@ -680,6 +804,146 @@
     if (!条) return;
     条.数量 = Number(条.数量) - 1;
     if (条.数量 <= 0) delete 数据.物品[名];
+  }
+
+  /* ── 购物车 ───────────────────────────────
+   *
+   * 买东西不再是一键立刻成交：先加进车，看着合计与还差多少，再一起结账。
+   * 车放在 localStorage 里。面板挂在楼层 iframe 上，每层楼重开一次，
+   * 车里还没结的货不能因为翻页就丢。
+   */
+
+  const 车键 = 'zhixia:购物车';
+
+  /** 纯算账：不碰界面，也不碰存档。验收脚本单独跑这个函数核数。 */
+  function 算购物车(车, 钱) {
+    const 列 = Array.isArray(车) ? 车 : [];
+    const 合计 = 列.reduce((和, 项) => 和 + Number(项.价) * Number(项.数), 0);
+    const 件数 = 列.reduce((和, 项) => 和 + Number(项.数), 0);
+    const 资金 = Number(钱) || 0;
+    return {
+      合计: 合计,
+      件数: 件数,
+      付得起: 资金 >= 合计,
+      还差: Math.max(0, 合计 - 资金),
+      结余: 资金 - 合计,
+    };
+  }
+
+  function 读车() {
+    try {
+      const 存 = JSON.parse(localStorage.getItem(车键) || '[]');
+      return Array.isArray(存) ? 存.filter(项 => 项 && 项.名) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function 存车(车) {
+    购物车 = Array.isArray(车) ? 车 : [];
+    try {
+      localStorage.setItem(车键, JSON.stringify(购物车));
+    } catch {
+      /* 存不进去也不影响这一次结账 */
+    }
+  }
+
+  let 购物车 = 读车();
+  let 最近一次结账 = '';
+
+  /** 车里这个货有几件。 */
+  function 车里几件(名) {
+    const 有 = 读车().find(项 => 项.名 === 名);
+    return 有 ? Number(有.数) : 0;
+  }
+
+  function 加车(名) {
+    const 货 = 货架.find(x => x.名 === 名);
+    if (!货) return;
+    const 车 = 读车();
+    const 有 = 车.find(x => x.名 === 名);
+    if (有) 有.数 = Number(有.数) + 1;
+    else 车.push({ 名: 货.名, 价: 货.价, 数: 1 });
+    存车(车);
+
+    const 账 = 算购物车(车, 读变量().钱);
+    if (!账.付得起) {
+      提示('加进车里：' + 名 + '。合计 ￥' + 账.合计 + '，手上的钱还差 ￥' + 账.还差 + '，去掉几件再结账。', 4600, '差');
+    } else {
+      提示('加进车里：' + 名 + '。车里 ' + 账.件数 + ' 件，合计 ￥' + 账.合计 + '。', 3000, '好');
+    }
+    renderShop();
+  }
+
+  function 减车(名) {
+    const 车 = 读车();
+    const 有 = 车.find(项 => 项.名 === 名);
+    if (!有) return;
+    if (Number(有.数) <= 1) 车.splice(车.indexOf(有), 1);
+    else 有.数 = Number(有.数) - 1;
+    存车(车);
+    const 账 = 算购物车(车, 存档().钱);
+    提示(
+      账.件数 ? '从车里拿出：' + 名 + '。还剩 ' + 账.件数 + ' 件，合计 ￥' + 账.合计 + '。' : '车空了。',
+      2800,
+      '常',
+    );
+    renderShop();
+  }
+
+  function 清空车() {
+    if (!读车().length) {
+      提示('车本来就是空的。', 2200, '常');
+      return;
+    }
+    存车([]);
+    提示('车清空了，钱没动。', 2600, '常');
+    renderShop();
+  }
+
+  /** 结账：一次扣钱、一次入库、记一趟出门。 */
+  function 结算() {
+    const 车 = 读车();
+    if (!车.length) {
+      提示('车里还是空的。先挑几件放进来。', 2800, '差');
+      return;
+    }
+    if (今日额度().买 <= 0) {
+      提示('今天已经去过 ' + 上限.买 + ' 趟小卖部了，王婶也要关门。明天再说。', 4200, '差');
+      return;
+    }
+    const 数据 = 读变量();
+    const 账 = 算购物车(车, 数据.钱);
+    if (!账.付得起) {
+      提示('钱不够：合计 ￥' + 账.合计 + '，还差 ￥' + 账.还差 + '。去掉几件，或者先去出工。', 4600, '差');
+      return;
+    }
+
+    const 前钱 = Number(数据.钱 ?? 0);
+    数据.钱 = 前钱 - 账.合计;
+    if (!数据.物品 || typeof 数据.物品 !== 'object') 数据.物品 = {};
+    const 单子 = 车.map(项 => {
+      const 货 = 货架.find(x => x.名 === 项.名);
+      const 数 = Number(项.数);
+      if (!数据.物品[项.名]) 数据.物品[项.名] = { 数量: 0, 类别: (货 && 货.类) || '食物' };
+      数据.物品[项.名].数量 = Number(数据.物品[项.名].数量) + 数;
+      return 项.名 + '×' + 数;
+    });
+    记今天的账('买过');
+    写变量();
+
+    最近一次结账 = 单子.join('、') + '，一共 ￥' + 账.合计;
+    存车([]);
+    提示(
+      '结账：' + 单子.join('、') + '。' +
+        变化段('钱', 前钱, 数据.钱) +
+        '。柜子里按「喂食」「照料」去用，今天还能出门 ' + 今日额度().买 + ' 趟。',
+      6200,
+      '好',
+    );
+    飘字('txt-money', '−￥' + 账.合计, '减');
+    updateUI();
+    renderShop();
   }
 
   /* 面板不碰日历。年、月、日、季节、总天数、她的年龄都只由脚本按真实时间推。 */
@@ -869,9 +1133,10 @@
     const 数据 = 读变量();
     const 剩下 = Math.max(0, 摸头日上限 - 今天摸头加了());
     const 加 = Math.min(摸头每次, 剩下);
+    const 前心 = Number(数据.妹妹.心情 ?? 60);
 
     if (加 > 0) {
-      数据.妹妹.心情 = 钳((数据.妹妹.心情 ?? 60) + 加);
+      数据.妹妹.心情 = 钳(前心 + 加);
       if (!数据.今日 || typeof 数据.今日 !== 'object') 数据.今日 = {};
       if (String(数据.今日.日期 ?? '') !== 今天记号()) 数据.今日.日期 = 今天记号();
       数据.今日.摸头加过 = 今天摸头加了() + 加;
@@ -886,27 +1151,78 @@
     // 摸够了也照样有反应，只是话不一样。
     // 气泡里只放她的话，前面不写旁白（例如「她有点不好意思了：」这种一律不加）。
     document.getElementById('speech-bubble').innerText = 加 > 0 ? 抽(摸头的话) : 抽(摸够了的话);
+
+    if (加 > 0) {
+      const 之后 = Math.max(0, 摸头日上限 - 今天摸头加了());
+      提示(
+        回执([变化段('心情', 前心, 数据.妹妹.心情)], '今天摸头还能加 ' + 之后 + ' 点心情'),
+        4200,
+        '好',
+      );
+      飘字('val-mood', '+' + 加, '加');
+      亮条('bar-mood');
+    } else {
+      提示('今天摸够了（已经加了 ' + 摸头日上限 + ' 点心情），她还在陪你说话，但心情不再涨。明天再来。', 4600, '差');
+    }
     updateUI();
   }
 
   /** 歇口气：回一点体力。半小时一次，不能一直歇。 */
+  const 歇的间隔 = 30 * 60 * 1000;
   let 上次歇 = 0;
-  function 歇一会儿() {
-    const 现在 = Date.now();
-    const 间隔 = 30 * 60 * 1000;
-    if (现在 - 上次歇 < 间隔) {
-      const 余 = Math.ceil((间隔 - (现在 - 上次歇)) / 60000);
-      提示('刚歇过。' + 余 + ' 分钟后再歇。', 3000);
+
+  /** 冷却还剩多少毫秒。面板重开也要接着算，所以上次歇的时刻存在 localStorage 里。 */
+  function 距离能歇() {
+    let 记着 = 0;
+    try {
+      const 存 = Number(localStorage.getItem('zhixia:上次歇') || 0);
+      记着 = Number.isFinite(存) ? 存 : 0;
+    } catch {
+      记着 = 0;
+    }
+    const 上次 = Math.max(上次歇, 记着);
+    return Math.max(0, 歇的间隔 - (Date.now() - 上次));
+  }
+
+  function 画歇的提示() {
+    const 位 = document.getElementById('rest-hint');
+    if (!位) return;
+    const 余 = 距离能歇();
+    if (余 <= 0) {
+      位.innerHTML = '可以歇口气了（体力 +12）';
       return;
     }
-    上次歇 = 现在;
+    const 分 = Math.ceil(余 / 60000);
+    位.innerHTML = '刚歇过，' + 分 + ' 分钟后能再歇';
+  }
+
+  function 歇一会儿() {
+    const 余 = 距离能歇();
+    if (余 > 0) {
+      提示('刚歇过。' + Math.ceil(余 / 60000) + ' 分钟后能再歇。', 3200, '差');
+      画歇的提示();
+      return;
+    }
+    上次歇 = Date.now();
+    try {
+      localStorage.setItem('zhixia:上次歇', String(上次歇));
+    } catch {
+      /* 存不进去只影响跨楼层续算 */
+    }
     const 数据 = 读变量();
     const 前 = Number(数据.哥哥.体力 ?? 0);
     数据.哥哥.体力 = 钳(前 + 12);
     写变量();
     document.getElementById('speech-bubble').innerText = 此刻的话();
-    提示('歇了一会儿，体力 +' + (数据.哥哥.体力 - 前) + '。');
+    提示(
+      回执([变化段('体力', 前, 数据.哥哥.体力)], '下次能歇：' + Math.round(歇的间隔 / 60000) + ' 分钟后'),
+      4600,
+      '好',
+    );
+    飘字('val-energy', 有号(数据.哥哥.体力 - 前), '加');
+    亮条('bar-energy');
     updateUI();
+    画歇的提示();
   }
 
   function openDialog(type) {
@@ -931,19 +1247,33 @@
   function renderFeed() {
     const 容器 = document.getElementById('feed-list');
     const 有 = 家里的(食物);
+    const 额度 = 今日额度().喂;
     if (!有.length) {
-      空列表(容器, '家里没有现成能吃的东西。去「买点东西」买一份，或者自己下厨做一顿。');
+      空列表(容器, '家里没有现成能吃的东西。去「买点东西」挑一份，或者自己下厨做一顿。');
       return;
     }
+    const 妹 = 存档().妹妹 ?? {};
+    const 前饥 = Number(妹.饥饿 ?? 70);
+    const 前心 = Number(妹.心情 ?? 60);
     容器.innerHTML = '';
+
+    const 说明 = document.createElement('p');
+    说明.className = 'dialog-note';
+    说明.innerHTML =
+      '饱食 <b>' + 前饥 + '</b>，心情 <b>' + 前心 + '</b>。今天还能喂 <b>' + 额度 + '</b> 回。' +
+      (额度 > 0 ? '' : '<br>今天的份已经喂完了，她会说「我不饿」，等明天。');
+    容器.appendChild(说明);
+
     有.forEach(货 => {
       const 数 = Number(存档().物品[货.名].数量);
       const 行 = document.createElement('div');
       行.className = 'item-card';
       行.innerHTML =
         '<div class="item-info"><h4>' + 货.名 + '（剩 ' + 数 + ' 份）</h4>' +
-        '<p>饱食 +' + 货.饥饿 + '，心情 +' + 货.心情 + '</p></div>' +
-        '<button class="item-act-btn" onclick="feed(\'' + 货.名 + '\')">喂她吃</button>';
+        '<p>' + 货.说明 + '</p>' +
+        '<p>饱食 ' + 前饥 + ' → <span class="小计">' + 钳(前饥 + 货.饥饿) + '</span>　心情 ' + 前心 + ' → <span class="小计">' + 钳(前心 + 货.心情) + '</span></p></div>' +
+        '<button class="item-act-btn" ' + (额度 > 0 ? '' : 'disabled') + ' onclick="feed(\'' + 货.名 + '\')">' +
+        (额度 > 0 ? '喂她吃' : '今天喂过了') + '</button>';
       容器.appendChild(行);
     });
   }
@@ -954,29 +1284,67 @@
     const 货 = 食物.find(x => x.名 === 名);
     if (!货) return;
     if (今日额度().喂 <= 0) {
-      提示('今天已经喂过 ' + 上限.喂 + ' 回了。她肚子饱着，等明天再说。', 3600);
+      提示('今天已经喂过 ' + 上限.喂 + ' 回了。她肚子饱着，明天再说。', 3800, '差');
       return;
     }
+    const 前饥 = Number(数据.妹妹.饥饿 ?? 70);
+    const 前心 = Number(数据.妹妹.心情 ?? 60);
     扣一个(名);
-    数据.妹妹.饥饿 = 钳((数据.妹妹.饥饿 ?? 70) + 货.饥饿);
-    数据.妹妹.心情 = 钳((数据.妹妹.心情 ?? 60) + 货.心情);
+    数据.妹妹.饥饿 = 钳(前饥 + 货.饥饿);
+    数据.妹妹.心情 = 钳(前心 + 货.心情);
     记今天的账('喂过');
     写变量();
-    document.getElementById('speech-bubble').innerText = '“哥哥，真好吃，你也吃一点！”';
-    提示('喂了她' + 名 + '，饱食 +' + 货.饥饿 + '。今天还能喂 ' + 今日额度().喂 + ' 回。');
+
+    const 剩 = Number(数据.物品?.[名]?.数量 ?? 0);
+    document.getElementById('speech-bubble').innerText = 抽(吃了的话(货));
+    提示(
+      回执([变化段('饱食', 前饥, 数据.妹妹.饥饿), 变化段('心情', 前心, 数据.妹妹.心情)], '柜子里还剩 ' + 名 + ' ' + 剩 + ' 份，今天还能喂 ' + 今日额度().喂 + ' 回'),
+      5600,
+      '好',
+    );
+    飘字('val-hunger', 有号(数据.妹妹.饥饿 - 前饥), 数据.妹妹.饥饿 >= 前饥 ? '加' : '减');
+    if (数据.妹妹.心情 !== 前心) 飘字('val-mood', 有号(数据.妹妹.心情 - 前心), 数据.妹妹.心情 >= 前心 ? '加' : '减');
+    亮条('bar-hunger');
+    亮条('bar-mood');
     updateUI();
     renderFeed();
+  }
+
+  /** 正数带加号，负数自带负号。 */
+  function 有号(差) {
+    const 数 = Math.round(Number(差) || 0);
+    return 数 > 0 ? '+' + 数 : String(数);
+  }
+
+  /** 吃不同的东西，她说的话不一样。糖和饭不是一回事。 */
+  function 吃了的话(货) {
+    if (货.名 === '大白兔奶糖') {
+      return 抽(['“哥哥也吃一颗。我留了糖纸，夹在报纸里。”', '“甜的。我含一会儿再咽。”', '“哥哥一颗，我一颗，这样就正好。”']);
+    }
+    if (货.名 === '热汤挂面') return 抽(['“汤是热的，哥哥也喝一口。”', '“我吹过了，不烫嘴。”', '“哥哥，真好吃，你也吃一点！”']);
+    return 抽(['“哥哥，真好吃，你也吃一点！”', '“锅里还有，我盛得下。”', '“我先吃一半，剩一半给你。”']);
   }
 
   function renderCare() {
     const 容器 = document.getElementById('care-list');
     const 有 = 家里的(药品);
+    const 额度 = 今日额度().药;
     if (!有.length) {
       空列表(容器, '家里没有能用的药。她要是病了，去「买点东西」里看看。');
       return;
     }
-    const 病 = String(存档().妹妹?.病症 ?? '无');
+    const 妹 = 存档().妹妹 ?? {};
+    const 病 = String(妹.病症 ?? '无');
+    const 前康 = Number(妹.健康 ?? 90);
     容器.innerHTML = '';
+
+    const 说明 = document.createElement('p');
+    说明.className = 'dialog-note';
+    说明.innerHTML =
+      '健康 <b>' + 前康 + '</b>，现在' + (病 === '无' ? '没病' : '<b>' + 病 + '</b>') +
+      '。今天还能照顾 <b>' + 额度 + '</b> 回。';
+    容器.appendChild(说明);
+
     有.forEach(货 => {
       const 数 = Number(存档().物品[货.名].数量);
       const 对症 = !货.治 || 货.治 === 病;
@@ -984,8 +1352,11 @@
       行.className = 'item-card';
       行.innerHTML =
         '<div class="item-info"><h4>' + 货.名 + '（剩 ' + 数 + ' 份）</h4>' +
-        '<p>健康 +' + 货.健康 + (货.治 ? '，针对' + 货.治 + (对症 ? '' : '（现在不对症）') : '') + '</p></div>' +
-        '<button class="item-act-btn" onclick="care(\'' + 货.名 + '\')">用上</button>';
+        '<p>' + 货.说明 + '</p>' +
+        '<p>健康 ' + 前康 + ' → <span class="小计">' + 钳(前康 + 货.健康) + '</span>' +
+        (货.治 ? '　' + (对症 ? '对她现在的' + 病 + '管用' : '不对症，现在是' + (病 === '无' ? '没病' : 病)) : '') + '</p></div>' +
+        '<button class="item-act-btn" ' + (额度 > 0 ? '' : 'disabled') + ' onclick="care(\'' + 货.名 + '\')">' +
+        (额度 > 0 ? '用上' : '今天用过了') + '</button>';
       容器.appendChild(行);
     });
   }
@@ -995,16 +1366,43 @@
     if (Number(数据.物品?.[名]?.数量 ?? 0) <= 0) return;
     const 货 = 药品.find(x => x.名 === 名);
     if (!货) return;
+    const 前康 = Number(数据.妹妹.健康 ?? 90);
+    const 前心 = Number(数据.妹妹.心情 ?? 60);
+    const 前病 = String(数据.妹妹.病症 ?? '无');
     扣一个(名);
-    数据.妹妹.健康 = 钳((数据.妹妹.健康 ?? 90) + 货.健康);
-    if (货.治 && String(数据.妹妹.病症 ?? '无') === 货.治 && 数据.妹妹.健康 >= 85) {
+    数据.妹妹.健康 = 钳(前康 + 货.健康);
+    if (货.心情) 数据.妹妹.心情 = 钳(前心 + 货.心情);
+    let 治好了 = false;
+    if (货.治 && 前病 === 货.治 && 数据.妹妹.健康 >= 85) {
       数据.妹妹.病症 = '无';
+      治好了 = true;
     }
     记今天的账('药过');
     写变量();
-    document.getElementById('speech-bubble').innerText =
-      '“哥哥不用替我花钱买药，知夏已经好受很多啦。”';
-    提示('用了' + 名 + '，健康 +' + 货.健康 + '。今天还能照顾 ' + 今日额度().药 + ' 回。');
+
+    const 剩 = Number(数据.物品?.[名]?.数量 ?? 0);
+    const 现在病 = String(数据.妹妹.病症 ?? '无');
+    const 不对症 = 货.治 && 前病 !== 货.治;
+    document.getElementById('speech-bubble').innerText = 治好了
+      ? '“好像不烫了……哥哥你摸摸看。”'
+      : 不对症
+        ? '“这个不用吃的吧。我留着，等真用得上再说。”'
+        : '“哥哥不用替我花钱买药，知夏已经好受很多啦。”';
+    提示(
+      回执(
+        [变化段('健康', 前康, 数据.妹妹.健康), 货.心情 ? 变化段('心情', 前心, 数据.妹妹.心情) : ''],
+        (治好了 ? '她的' + 货.治 + '退了，现在没病。' : 不对症 ? '这个不对症，' + 前病 + '没动。' : '现在还是' + 现在病 + '。') +
+          '还剩 ' + 名 + ' ' + 剩 + ' 份，今天还能照顾 ' + 今日额度().药 + ' 回',
+      ),
+      6000,
+      治好了 ? '好' : 不对症 ? '差' : '常',
+    );
+    飘字('val-health', 有号(数据.妹妹.健康 - 前康), 数据.妹妹.健康 >= 前康 ? '加' : '减');
+    亮条('bar-health');
+    if (货.心情 && 数据.妹妹.心情 !== 前心) {
+      飘字('val-mood', 有号(数据.妹妹.心情 - 前心), 数据.妹妹.心情 >= 前心 ? '加' : '减');
+      亮条('bar-mood');
+    }
     updateUI();
     renderCare();
   }
@@ -1015,6 +1413,7 @@
     const 额度 = 今日额度();
     const 体力 = Number(数据.哥哥?.体力 ?? 0);
     const 熟练 = 数据.进度?.熟练 ?? {};
+    const 次数 = 数据.进度?.次数 ?? {};
     const 活 = [
       { 名: '城东工地 · 搬料配重', 地: '工地', 体内: 22, 薪: 90 },
       { 名: '巷口饭店 · 后厨备菜', 地: '后厨', 体内: 15, 薪: 110 },
@@ -1025,17 +1424,28 @@
     const 说明 = document.createElement('p');
     说明.className = 'dialog-note';
     说明.innerHTML =
-      '今天还能出工：' + 额度.出工 + ' 次　现在体力 ' + 体力 + '<br>' +
+      '今天还能出工：<b>' + 额度.出工 + '</b> 次　现在体力 <b>' + 体力 + '</b><br>' +
       '出工要玩一局手上的活，那一局在另一块面板的「挣」页里。这里只报今天的状态，不重复发钱。';
     容器.appendChild(说明);
+
+    if (额度.出工 <= 0) {
+      const 完 = document.createElement('p');
+      完.className = 'dialog-note';
+      完.innerHTML = '今天的活已经干完了。她在家等着，去正文里陪她说两句话。';
+      容器.appendChild(完);
+    }
+
     活.forEach(j => {
       const 行 = document.createElement('div');
       行.className = 'item-card';
       const 够 = 体力 >= j.体内;
+      const 做过 = Number(次数[j.地] ?? 0);
+      const 熟 = Number(熟练[j.地] ?? 0);
+      const 受阻 = 额度.出工 <= 0 ? '今天已经出过了' : 够 ? '' : '体力不够';
       行.innerHTML =
         '<div class="item-info"><h4>' + j.名 + '</h4>' +
-        '<p>时薪 ' + j.薪 + '，体力 -' + j.体内 + '，熟练 ' + (熟练[j.地] ?? 0) +
-        (额度.出工 <= 0 ? '（今天已经出过了）' : 够 ? '' : '（体力不够）') + '</p></div>' +
+        '<p>时薪 ￥' + j.薪 + '　体力 ' + 体力 + ' → <span class="小计">' + 钳(体力 - j.体内) + '</span>（-' + j.体内 + '）</p>' +
+        '<p>熟练 ' + 熟 + '　做过 ' + 做过 + ' 次' + (受阻 ? '　<span class="小计">' + 受阻 + '</span>' : '') + '</p></div>' +
         '<button class="item-act-btn" disabled>' + (额度.出工 <= 0 ? '今天做过了' : 够 ? '在「挣」页开工' : '体力不够') + '</button>';
       容器.appendChild(行);
     });
@@ -1044,37 +1454,87 @@
   function renderShop() {
     const 容器 = document.getElementById('shop-list');
     const 钱 = Number(存档().钱 ?? 0);
+    const 车 = 读车();
+    const 账 = 算购物车(车, 钱);
     容器.innerHTML = '';
+
     const 说明 = document.createElement('p');
     说明.className = 'dialog-note';
-    说明.innerHTML = '手上的钱 ￥' + 钱 + '。买回来的东西会进家里的柜子，去「喂食」或「照料」里用。';
+    说明.innerHTML =
+      '手上的钱 <b>￥' + 钱 + '</b>。挑好的先放车里，看着合计再一起结账。' +
+      '今天还能出门 ' + 今日额度().买 + ' 趟。';
     容器.appendChild(说明);
-    市集.forEach(w => {
-      const 够 = 钱 >= w.价;
-      const 行 = document.createElement('div');
-      行.className = 'item-card';
-      行.innerHTML =
-        '<div class="item-info"><h4>' + w.名 + '</h4><p>单价 ￥' + w.价 + '</p></div>' +
-        '<button class="item-act-btn" ' + (够 ? '' : 'disabled') + ' onclick="buy(\'' + w.名 + '\', ' + w.价 + ')">买一份</button>';
-      容器.appendChild(行);
+
+    类别顺序.forEach(类 => {
+      const 这类的货 = 货架.filter(货 => 货.类 === 类);
+      if (!这类的货.length) return;
+      const 头 = document.createElement('p');
+      头.className = 'dialog-note';
+      头.innerHTML = '—— ' + 类 + ' ——';
+      容器.appendChild(头);
+
+      这类的货.forEach(货 => {
+        const 车里 = 车里几件(货.名);
+        const 行 = document.createElement('div');
+        行.className = 'item-card' + (车里 ? ' 在车里' : '');
+        行.innerHTML =
+          '<div class="item-info"><h4>' + 货.名 + '　<span class="小计">￥' + 货.价 + '</span></h4>' +
+          '<p>' + 效果话(货) + '</p></div>' +
+          (车里
+            ? '<div class="qty">' +
+              '<button class="qty-btn" onclick="减车(\'' + 货.名 + '\')" title="从车里拿掉一件">−</button>' +
+              '<span class="qty-num">' + 车里 + '</span>' +
+              '<button class="qty-btn" onclick="加车(\'' + 货.名 + '\')" title="再加一件">+</button>' +
+              '</div>'
+            : '<button class="item-act-btn" onclick="加车(\'' + 货.名 + '\')">放进车里</button>');
+        容器.appendChild(行);
+      });
     });
+
+    if (最近一次结账) {
+      const 单 = document.createElement('p');
+      单.className = 'receipt';
+      单.innerHTML = '最近一次结账：<b>' + 最近一次结账 + '</b>';
+      容器.appendChild(单);
+    }
+
+    刷新车条(账, 车);
   }
 
-  function buy(名, 价) {
-    const 数据 = 读变量();
-    if (Number(数据.钱 ?? 0) < 价) return;
-    if (今日额度().买 <= 0) {
-      提示('今天已经去过 ' + 上限.买 + ' 趟小卖部了。王婶也该关门了。', 3600);
+  /** 一行说清这件货是干什么用的。 */
+  function 效果话(货) {
+    const 段 = [];
+    if (货.饥饿) 段.push('饱食 +' + 货.饥饿);
+    if (货.健康) 段.push('健康 +' + 货.健康);
+    if (货.心情) 段.push('心情 +' + 货.心情);
+    if (货.治) 段.push('治' + 货.治);
+    if (!段.length) 段.push('家里缺的小东西');
+    return 段.join('，') + '。' + (货.说明 || '');
+  }
+
+  /** 底部那条购物车：清单、合计、还差多少、能不能结账。 */
+  function 刷新车条(账, 车) {
+    const 行 = document.getElementById('cart-line');
+    const 总 = document.getElementById('cart-total');
+    const 键 = document.getElementById('cart-pay');
+    if (!行 || !总 || !键) return;
+
+    if (!车.length) {
+      行.innerHTML = '<span class="空">车里还是空的。挑一件放进来。</span>';
+      总.innerHTML = '合计 <b>￥0</b>';
+      键.disabled = true;
+      键.textContent = '结账';
       return;
     }
-    数据.钱 = Number(数据.钱) - 价;
-    if (!数据.物品[名]) 数据.物品[名] = { 数量: 0, 类别: '食物' };
-    数据.物品[名].数量 = Number(数据.物品[名].数量) + 1;
-    记今天的账('买过');
-    写变量();
-    提示('买了' + 名 + '，花了 ' + 价 + ' 元。今天还能去 ' + 今日额度().买 + ' 趟。');
-    updateUI();
-    renderShop();
+
+    行.innerHTML = 车.map(项 => 项.名 + '×' + 项.数 + ' <span class="空">￥' + Number(项.价) * Number(项.数) + '</span>').join('　');
+    总.innerHTML =
+      '合计 <b>￥' + 账.合计 + '</b>（' + 账.件数 + ' 件）' +
+      (账.付得起 ? '　结完还剩 ￥' + 账.结余 : '　<span class="差">还差 ￥' + 账.还差 + '</span>');
+
+    const 没额度 = 今日额度().买 <= 0;
+    键.disabled = !账.付得起 || 没额度;
+    键.textContent = 没额度 ? '今天去过了' : 账.付得起 ? '结账 ￥' + 账.合计 : '钱还差 ￥' + 账.还差;
   }
 
   /* 陪她这件事没有按钮。想陪她就自己在正文里说话、做事。
@@ -1085,13 +1545,32 @@
   function 起手() {
     updateUI();
     现实时钟();
-    window.setInterval(现实时钟, 20000);
+    画歇的提示();
+    window.setInterval(() => {
+      现实时钟();
+      画歇的提示();
+    }, 20000);
     // 变量可能被正文那头的 AI 改，也可能被挂机脚本改，所以定期重读一次
     window.setInterval(updateUI, 3000);
     const 面 = document.getElementById('char-art');
     if (面) 面.addEventListener('error', () => {
       document.getElementById('no-art').style.display = 'flex';
     });
+
+    // 挂机结算的回执。她一个人过了多久、掉了什么，脚本已经写在 $记账.上次结算 里，
+    // 面板负责把它端到眼前，并且同一条只报一次。
+    const 回执话 = String(存档().$记账?.上次结算 ?? '');
+    if (回执话) {
+      try {
+        const 上次报过 = localStorage.getItem('zhixia:上次回执') || '';
+        if (上次报过 !== 回执话) {
+          提示('你不在的这段时间：' + 回执话, 7000, '常');
+          localStorage.setItem('zhixia:上次回执', 回执话);
+        }
+      } catch {
+        /* 存不进去就每次都报一遍，不影响功能 */
+      }
+    }
 
     // 一打开就先让她把攒着的话讲出来。这句是正文那头 AI 在她独处时记下的，
     // 挑走一句就删掉，所以攒过的话只会说一次。
