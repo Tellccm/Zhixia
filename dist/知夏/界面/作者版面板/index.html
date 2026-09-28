@@ -215,6 +215,8 @@
     .zhixia-char-wrap.低落 { bottom: 30px; }
     .zhixia-char-wrap.低落 .char-sprite-box { filter: brightness(0.78) saturate(0.8); }
     .zhixia-char-wrap.高兴 { bottom: 6px; }
+    /* 气泡淡入，停几秒自己淡出。始终占着位置（用 visibility 而不是 display），
+       所以一句话来了又走，她不会跟着上下跳。 */
     .speech-bubble {
       background: rgba(255, 251, 235, 0.95);
       color: #292524;
@@ -227,7 +229,15 @@
       box-shadow: 0 4px 15px rgba(0,0,0,0.4);
       position: relative;
       border: 1.5px solid #b45309;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(6px) scale(0.96);
+      transition:
+        opacity 0.3s ease,
+        transform 0.3s cubic-bezier(0.22, 0.61, 0.36, 1),
+        visibility 0.3s;
     }
+    .speech-bubble.show { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
     .speech-bubble::after {
       content: "";
       position: absolute;
@@ -283,8 +293,13 @@
       padding: 2px 6px;
       border-radius: 10px;
       animation: pulse 1.5s infinite;
+      opacity: 0;
+      visibility: hidden;
+      transform: scale(0.9);
+      transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
       z-index: 4;
     }
+    .sickness-tag.show { opacity: 1; visibility: visible; transform: scale(1); }
     .link-error {
       display: none;
       margin: 10px 14px 0;
@@ -342,9 +357,11 @@
       align-items: center;
       gap: 4px;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease, filter 0.18s ease;
       font-family: inherit;
     }
+    .act-btn:hover { filter: brightness(1.15); border-color: #78716c; }
+    .act-btn:active { transform: scale(0.97); }
     .act-btn:active { transform: translateY(2px); background: #44403c; }
     .act-btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .act-btn span.icon {
@@ -363,8 +380,10 @@
     .act-btn.green span.icon { background: #032b21; color: #6ee7b7; }
     .act-btn.blue { background: #1e3a8a; border-color: #3b82f6; color: #dbeafe; }
     .act-btn.blue span.icon { background: #14275c; color: #93c5fd; }
+    /* 弹窗不再硬切：淡入并轻轻上浮一点。收起走同一套过渡，所以关掉也是滑走的。
+       隐藏时 pointer-events 关掉，免得看不见的弹窗挡住底下的点击。 */
     .sub-dialog {
-      display: none;
+      display: flex;
       position: absolute;
       inset: 0;
       background: rgba(12,10,9,0.94);
@@ -372,8 +391,21 @@
       z-index: 50;
       flex-direction: column;
       padding: 16px;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(10px) scale(0.985);
+      transition:
+        opacity 0.22s ease,
+        transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1),
+        visibility 0.22s;
     }
-    .sub-dialog.active { display: flex; }
+    .sub-dialog.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateY(0) scale(1);
+    }
     .dialog-header {
       display: flex;
       justify-content: space-between;
@@ -405,6 +437,7 @@
       justify-content: space-between;
       align-items: center;
       gap: 10px;
+      transition: border-color 0.22s ease, background 0.22s ease, opacity 0.22s ease;
     }
     .item-info h4 { font-size: 13px; color: #f5f5f4; margin-bottom: 3px; }
     .item-info p { font-size: 11px; color: #a8a29e; }
@@ -419,7 +452,10 @@
       cursor: pointer;
       font-family: inherit;
       white-space: nowrap;
+      transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease, opacity 0.18s ease;
     }
+    .item-act-btn:hover:not(:disabled) { background: #f59e0b; }
+    .item-act-btn:active:not(:disabled) { transform: scale(0.96); }
     .item-act-btn:disabled { background: #57534e; color: #a8a29e; cursor: not-allowed; }
     .dialog-note {
       font-size: 11px;
@@ -474,9 +510,20 @@
       font-size: 12.5px;
       cursor: pointer;
       font-family: inherit;
+      transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease, opacity 0.18s ease;
     }
     .cart-btn.plain { background: #44403c; color: #e7e5e4; font-weight: normal; }
+    .cart-btn:hover:not(:disabled) { background: #f59e0b; }
+    .cart-btn.plain:hover:not(:disabled) { background: #57534e; }
+    .cart-btn:active:not(:disabled) { transform: scale(0.97); }
     .cart-btn:disabled { background: #57534e; color: #a8a29e; cursor: not-allowed; }
+    /* 车里进出东西时，底部那条轻轻动一下，眼睛才知道是它变了。 */
+    .cart-strip.动 { animation: 车动 0.36s ease-out; }
+    @keyframes 车动 {
+      0% { transform: translateY(3px); border-top-color: #d97706; }
+      60% { transform: translateY(0); border-top-color: #fcd34d; }
+      100% { border-top-color: #44403c; }
+    }
     .item-card.在车里 { border-color: #d97706; background: #332a1f; }
     .item-card.缺货 { opacity: 0.72; border-color: #57534e; background: #231f1e; }
     .缺 { color: #fca5a5; }
@@ -492,7 +539,11 @@
       line-height: 1;
       cursor: pointer;
       font-family: inherit;
+      transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
     }
+    .qty-btn:hover:not(:disabled) { background: #3f3a37; border-color: #a8a29e; }
+    .qty-btn:active:not(:disabled) { transform: scale(0.92); }
+    .qty-btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .qty-num { min-width: 20px; text-align: center; font-size: 13px; color: #fcd34d; font-weight: bold; }
     .小计 { font-size: 11px; color: #fcd34d; }
     .receipt { font-size: 11px; color: #a8a29e; line-height: 1.7; padding: 6px 2px 0; border-top: 1px dashed #44403c; margin-top: 8px; }
@@ -537,7 +588,7 @@
       <div class="char-sprite-box">
         <img src="zhixia_character_art.png" alt="" id="char-art" onerror="this.style.display='none';document.getElementById('no-art').style.display='flex'">
         <div class="no-art" id="no-art" style="display:none">立绘还没放进来。<br>把图放进仓库的这个目录即可。</div>
-        <div class="sickness-tag" id="sickness-tag" style="display:none;">发烧中</div>
+        <div class="sickness-tag" id="sickness-tag">发烧中</div>
       </div>
     </div>
   </div>
@@ -767,6 +818,24 @@
       框.classList.remove('冒');
       框.style.maxHeight = '0px';
     }, 毫秒 || 4200);
+  }
+
+  /** 她开口说话：气泡淡入，停一会儿自己淡出。
+   *  气泡始终占着位置（CSS 用 visibility），所以她不会因为一句话来了又走而上下跳。
+   *  默认停 7 秒；攒着的话是她憋了很久才说出口的，留久一点。
+   */
+  let 说话计时 = 0;
+  function 她说话(话, 毫秒) {
+    const 泡 = document.getElementById('speech-bubble');
+    if (!泡 || !话) return;
+    泡.textContent = 话;
+    泡.classList.remove('show');
+    void 泡.offsetWidth;
+    泡.classList.add('show');
+    window.clearTimeout(说话计时);
+    说话计时 = window.setTimeout(() => {
+      泡.classList.remove('show');
+    }, 毫秒 || 7000);
   }
 
   /* ── 反馈的小零件 ─────────────────────────
@@ -1051,6 +1120,14 @@
     return 有 ? Number(有.数) : 0;
   }
 
+  function 晃一下(id) {
+    const 块 = document.getElementById(id);
+    if (!块) return;
+    块.classList.remove('动');
+    void 块.offsetWidth;
+    块.classList.add('动');
+  }
+
   function 加车(名) {
     const 货 = 货架.find(x => x.名 === 名);
     if (!货) return;
@@ -1086,6 +1163,7 @@
         '好',
       );
     }
+    晃一下('cart-strip');
     renderShop();
   }
 
@@ -1102,6 +1180,7 @@
       2800,
       '常',
     );
+    晃一下('cart-strip');
     renderShop();
   }
 
@@ -1112,6 +1191,7 @@
     }
     存车([]);
     提示('车清空了，钱没动。', 2600, '常');
+    晃一下('cart-strip');
     renderShop();
   }
 
@@ -1161,6 +1241,7 @@
       '好',
     );
     飘字('txt-money', '−￥' + 账.合计, '减');
+    晃一下('cart-strip');
     updateUI();
     renderShop();
   }
@@ -1198,7 +1279,7 @@
 
     const 病 = String(妹.病症 ?? '无');
     const 标签 = document.getElementById('sickness-tag');
-    标签.style.display = 病 !== '无' ? 'block' : 'none';
+    标签.classList.toggle('show', 病 !== '无');
     标签.innerText = 病 + '中';
 
     // 她站的位置与灯下的脸色随心情变。这是「活着」的那点意思。
@@ -1326,7 +1407,7 @@
   function 讲攒下的话() {
     const 话 = 挑一句待说话();
     if (!话) return false;
-    document.getElementById('speech-bubble').innerText = 话;
+    她说话(话, 10000);
     return true;
   }
 
@@ -1375,7 +1456,7 @@
 
     // 摸够了也照样有反应，只是话不一样。
     // 气泡里只放她的话，前面不写旁白（例如「她有点不好意思了：」这种一律不加）。
-    document.getElementById('speech-bubble').innerText = 加 > 0 ? 抽(摸头的话) : 抽(摸够了的话);
+    她说话(加 > 0 ? 抽(摸头的话) : 抽(摸够了的话));
 
     if (加 > 0) {
       const 之后 = Math.max(0, 摸头日上限 - 今天摸头加了());
@@ -1438,7 +1519,7 @@
     const 前 = Number(数据.哥哥.体力 ?? 0);
     数据.哥哥.体力 = 钳(前 + 12);
     写变量();
-    document.getElementById('speech-bubble').innerText = 此刻的话();
+    她说话(此刻的话());
     提示(
       回执([变化段('体力', 前, 数据.哥哥.体力)], '下次能歇：' + Math.round(歇的间隔 / 60000) + ' 分钟后'),
       4600,
@@ -1521,7 +1602,7 @@
     写变量();
 
     const 剩 = Number(数据.物品?.[名]?.数量 ?? 0);
-    document.getElementById('speech-bubble').innerText = 抽(吃了的话(货));
+    她说话(抽(吃了的话(货)));
     提示(
       回执([变化段('饱食', 前饥, 数据.妹妹.饥饿), 变化段('心情', 前心, 数据.妹妹.心情)], '柜子里还剩 ' + 名 + ' ' + 剩 + ' 份，今天还能喂 ' + 今日额度().喂 + ' 回'),
       5600,
@@ -1608,11 +1689,13 @@
     const 剩 = Number(数据.物品?.[名]?.数量 ?? 0);
     const 现在病 = String(数据.妹妹.病症 ?? '无');
     const 不对症 = 货.治 && 前病 !== 货.治;
-    document.getElementById('speech-bubble').innerText = 治好了
-      ? '“好像不烫了……哥哥你摸摸看。”'
-      : 不对症
-        ? '“这个不用吃的吧。我留着，等真用得上再说。”'
-        : '“哥哥不用替我花钱买药，知夏已经好受很多啦。”';
+    她说话(
+      治好了
+        ? '“好像不烫了……哥哥你摸摸看。”'
+        : 不对症
+          ? '“这个不用吃的吧。我留着，等真用得上再说。”'
+          : '“哥哥不用替我花钱买药，知夏已经好受很多啦。”',
+    );
     提示(
       回执(
         [变化段('健康', 前康, 数据.妹妹.健康), 货.心情 ? 变化段('心情', 前心, 数据.妹妹.心情) : ''],
@@ -1678,6 +1761,7 @@
 
   function renderShop() {
     const 容器 = document.getElementById('shop-list');
+    const 滚动位置 = 容器.scrollTop;
     const 钱 = Number(存档().钱 ?? 0);
     const 车 = 读车();
     const 账 = 算购物车(车, 钱);
@@ -1735,6 +1819,8 @@
     }
 
     刷新车条(账, 车);
+    // 每次都重建列表，得把滚动位置放回去，不然加减一件就从顶上重新看起。
+    容器.scrollTop = 滚动位置;
   }
 
   /** 一行说清这件货是干什么用的。 */
@@ -1813,7 +1899,9 @@
 
     // 一打开就先让她把攒着的话讲出来。这句是正文那头 AI 在她独处时记下的，
     // 挑走一句就删掉，所以攒过的话只会说一次。
+    // 没有攒着的话，就按当前状态说一句，免得开场是空着的。
     let 正在讲攒的话 = 讲攒下的话();
+    if (!正在讲攒的话) 她说话(此刻的话());
 
     // 她隔一会儿自己说一句，按当前状态挑。桌面养成里那种「她在过日子」的感觉靠这个。
     let 上次说话 = Date.now();
@@ -1825,7 +1913,7 @@
         正在讲攒的话 = false;
         return;
       }
-      document.getElementById('speech-bubble').innerText = 此刻的话();
+      她说话(此刻的话());
     }, 25000);
   }
 
