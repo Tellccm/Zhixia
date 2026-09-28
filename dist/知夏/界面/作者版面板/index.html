@@ -468,17 +468,9 @@
       <span class="icon">市</span>
       <span>买点东西</span>
     </button>
-    <button class="act-btn blue" onclick="openDialog('pet')">
-      <span class="icon">坐</span>
-      <span>陪她</span>
-    </button>
     <button class="act-btn blue" onclick="openDialog('sync')">
       <span class="icon">阅</span>
       <span>数据</span>
-    </button>
-    <button class="act-btn green" onclick="歇一会儿()">
-      <span class="icon">歇</span>
-      <span>歇口气</span>
     </button>
   </div>
 
@@ -518,15 +510,6 @@
     <div class="dialog-body" id="shop-list"></div>
   </div>
 
-  <!-- 陪她弹窗 -->
-  <div class="sub-dialog" id="dlg-pet">
-    <div class="dialog-header">
-      <span class="dialog-title">坐下来陪她说说话</span>
-      <button class="close-btn" onclick="closeDialog()">✕</button>
-    </div>
-    <div class="dialog-body" id="pet-list"></div>
-  </div>
-
   <!-- 数据查看 -->
   <div class="sub-dialog" id="dlg-sync">
     <div class="dialog-header">
@@ -559,7 +542,6 @@
    * 这些数就是「限制状态栏的游玩」的地方，比发不发消息有用。
    */
   const 上限 = {
-    陪: 2,      // 一天里能坐下来陪她几次
     喂: 4,      // 一天里能喂几回
     药: 3,      // 一天里能用几回药与照顾
     买: 3,      // 一天里能去小卖部几趟
@@ -671,7 +653,6 @@
     const 换天 = String(今.日期 ?? '') !== 今天记号();
     const 用过 = 项 => (换天 ? 0 : Number(今[项] ?? 0));
     return {
-      陪: Math.max(0, 上限.陪 - 用过('陪过')),
       喂: Math.max(0, 上限.喂 - 用过('喂过')),
       药: Math.max(0, 上限.药 - 用过('药过')),
       买: Math.max(0, 上限.买 - 用过('买过')),
@@ -684,7 +665,6 @@
     if (!数据.今日 || typeof 数据.今日 !== 'object') 数据.今日 = {};
     if (String(数据.今日.日期 ?? '') !== 今天记号()) {
       数据.今日.日期 = 今天记号();
-      数据.今日.陪过 = 0;
       数据.今日.喂过 = 0;
       数据.今日.药过 = 0;
       数据.今日.买过 = 0;
@@ -741,7 +721,7 @@
     // 角落那行字报的是今天还剩多少次，玩家扫一眼就知道还能做什么。
     const 额度 = 今日额度();
     document.getElementById('txt-scene').innerText =
-      '今天还剩：陪 ' + 额度.陪 + ' · 喂 ' + 额度.喂 + ' · 照顾 ' + 额度.药 + ' · 出门 ' + 额度.买 +
+      '今天还剩：喂 ' + 额度.喂 + ' · 照顾 ' + 额度.药 + ' · 出门 ' + 额度.买 +
       (额度.出工 > 0 ? ' · 出工 ' + 额度.出工 : ' · 今天已出工');
 
     const 面 = document.getElementById('char-art');
@@ -821,25 +801,6 @@
     updateUI();
   }
 
-  /** 一天的活干完了，坐下来歇口气。回一点体力，没有次数限制，但不能一直歇。 */
-  let 上次歇 = 0;
-  function 歇一会儿() {
-    const 现在 = Date.now();
-    if (现在 - 上次歇 < 30 * 60 * 1000) {
-      const 余 = Math.ceil((30 * 60 * 1000 - (现在 - 上次歇)) / 60000);
-      提示('刚歇过。' + 余 + ' 分钟后再歇。', 3000);
-      return;
-    }
-    上次歇 = 现在;
-    const 数据 = 读变量();
-    const 前 = Number(数据.哥哥.体力 ?? 0);
-    数据.哥哥.体力 = 钳(前 + 12);
-    写变量();
-    document.getElementById('speech-bubble').innerText = '你在床边坐了会儿。' + 此刻的话();
-    提示('歇了一会儿，体力 +' + (数据.哥哥.体力 - 前) + '。');
-    updateUI();
-  }
-
   function openDialog(type) {
     closeDialog();
     const 框 = document.getElementById('dlg-' + type);
@@ -848,7 +809,6 @@
     if (type === 'care') renderCare();
     if (type === 'work') renderWork();
     if (type === 'shop') renderShop();
-    if (type === 'pet') renderPet();
     if (type === 'sync') renderSync();
     框.classList.add('active');
   }
@@ -1010,47 +970,8 @@
     renderShop();
   }
 
-  function renderPet() {
-    const 容器 = document.getElementById('pet-list');
-    const 额度 = 今日额度();
-    容器.innerHTML = '';
-    const 说明 = document.createElement('p');
-    说明.className = 'dialog-note';
-    说明.innerHTML =
-      '今天还能陪她：' + 额度.陪 + ' 次。<br>他一天只有这么多时间，陪她就没空出工，出工就不能陪。跨过一天刷新。';
-    容器.appendChild(说明);
-    const 事 = [
-      { 名: '坐在她旁边，听她讲今天的事', 心情: 12, 依赖: 3 },
-      { 名: '陪她把作业写完', 心情: 10, 依赖: 4 },
-      { 名: '一块儿去楼下走走', 心情: 14, 依赖: 2 },
-    ];
-    事.forEach(x => {
-      const 行 = document.createElement('div');
-      行.className = 'item-card';
-      行.innerHTML =
-        '<div class="item-info"><h4>' + x.名 + '</h4><p>心情 +' + x.心情 + '，依赖 +' + x.依赖 + '</p></div>' +
-        '<button class="item-act-btn" ' + (额度.陪 <= 0 ? 'disabled' : '') +
-        ' onclick="陪她(\'' + x.名 + '\', ' + x.心情 + ', ' + x.依赖 + ')">' +
-        (额度.陪 <= 0 ? '今天陪过了' : '就这样') + '</button>';
-      容器.appendChild(行);
-    });
-  }
-
-  function 陪她(名, 心情, 依赖) {
-    if (今日额度().陪 <= 0) {
-      提示('今天已经陪过她 ' + 上限.陪 + ' 回了。他一天就这么点时间，等明天。', 3600);
-      return;
-    }
-    const 数据 = 读变量();
-    数据.妹妹.心情 = 钳((数据.妹妹.心情 ?? 60) + 心情);
-    数据.妹妹.依赖 = 钳((数据.妹妹.依赖 ?? 40) + 依赖);
-    记今天的账('陪过');
-    写变量();
-    document.getElementById('speech-bubble').innerText = '你' + 名 + '。她话多了起来，说到一半自己先笑了。';
-    提示('你' + 名 + '。今天还能陪 ' + 今日额度().陪 + ' 回。');
-    updateUI();
-    renderPet();
-  }
+  /* 陪她这件事没有按钮。想陪她就自己在正文里说话、做事。
+     面板只做喂她、给她用药、买东西、出工这几件「动手」的事。 */
 
   function renderSync() {
     const 数据 = 读变量();
