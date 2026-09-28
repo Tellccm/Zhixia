@@ -113,7 +113,7 @@
       position: relative;
       height: 400px;
       flex: 0 0 auto;
-      background: #0c0a09;
+      background: linear-gradient(180deg, #1b1613 0%, #100d0b 55%, #17120f 100%);
       overflow: hidden;
       cursor: pointer;
     }
@@ -146,6 +146,7 @@
       background: radial-gradient(circle at 50% 20%, rgba(251,191,36,0.18) 0%, rgba(12,10,9,0.6) 80%);
       pointer-events: none;
     }
+    /* 灯是布景，压到人物与气泡下面。她放大之后，灯绳原来会横穿气泡，把字切开。 */
     .bulb-fixture {
       position: absolute;
       top: 0;
@@ -155,12 +156,12 @@
       flex-direction: column;
       align-items: center;
       cursor: pointer;
-      z-index: 3;
+      z-index: 1;
     }
-    .bulb-cord { width: 2px; height: 30px; background: #57534e; }
+    .bulb-cord { width: 2px; height: 20px; background: #57534e; }
     .bulb-glass {
-      width: 22px;
-      height: 22px;
+      width: 18px;
+      height: 18px;
       border-radius: 50%;
       background: #fef08a;
       box-shadow: 0 0 25px 12px rgba(253, 224, 71, 0.6);
@@ -494,10 +495,12 @@
   <div class="notice" id="notice"></div>
 
   <div class="pet-screen">
-    <!-- 背景图：由角色卡里的「面板补图」脚本换成仓库地址；也可在这里直接填一个网络地址 -->
-    <img src="zhixia_rental_room.jpg" class="screen-bg" id="room-bg" alt="老屋">
+    <!-- 背景图：由角色卡里的「面板补图」脚本换成仓库地址；也可在这里直接填一个网络地址。
+         图还没放进来时直接藏掉，否则浏览器会在左上角画一个破图图标，压住角落那行字。 -->
+    <img src="zhixia_rental_room.jpg" class="screen-bg" id="room-bg" alt="" onerror="this.style.display='none'">
     <div class="room-tint" id="room-tint"></div>
 
+    <!-- 吊灯是布景，压在她和气泡下面；点一下能拉灯绳。 -->
     <div class="bulb-fixture" onclick="toggleLight()" title="拉一下灯绳">
       <div class="bulb-cord"></div>
       <div class="bulb-glass" id="bulb-lamp"></div>
@@ -509,7 +512,7 @@
       <div class="pet-heart" id="pet-heart">♥</div>
       <div class="speech-bubble" id="speech-bubble">“哥哥！你回来啦……”</div>
       <div class="char-sprite-box">
-        <img src="zhixia_character_art.png" alt="" id="char-art">
+        <img src="zhixia_character_art.png" alt="" id="char-art" onerror="this.style.display='none';document.getElementById('no-art').style.display='flex'">
         <div class="no-art" id="no-art" style="display:none">立绘还没放进来。<br>把图放进仓库的这个目录即可。</div>
         <div class="sickness-tag" id="sickness-tag" style="display:none;">发烧中</div>
       </div>
