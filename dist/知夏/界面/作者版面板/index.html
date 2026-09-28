@@ -196,6 +196,8 @@
       top: 8px;
       left: 12px;
       font-size: 11px;
+      cursor: pointer;
+      transition: color 0.18s ease;
       color: #d6d3d1;
       text-shadow: 0 1px 3px rgba(0,0,0,0.9);
       z-index: 3;
@@ -548,6 +550,81 @@
     .小计 { font-size: 11px; color: #fcd34d; }
     .receipt { font-size: 11px; color: #a8a29e; line-height: 1.7; padding: 6px 2px 0; border-top: 1px dashed #44403c; margin-top: 8px; }
     .receipt b { color: #fcd34d; }
+    /* ── 任务清单 ─────────────────────────────
+       上面是每天固定的那几件，下面是她自己的事。她的每件事底下挂一句心里话。 */
+    .task-sec { margin-bottom: 14px; }
+    .task-title {
+      font-size: 12px;
+      color: #fcd34d;
+      font-weight: bold;
+      padding: 4px 2px 8px;
+      border-bottom: 1px solid #44403c;
+      margin-bottom: 8px;
+    }
+    .task-title .计数 { color: #a8a29e; font-weight: normal; }
+    .task-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      padding: 7px 9px;
+      border-radius: 9px;
+      margin-bottom: 6px;
+      background: #221f1e;
+      border: 1px solid #3a3634;
+      transition: border-color 0.22s ease, background 0.22s ease, opacity 0.22s ease;
+    }
+    .task-row.完 { opacity: 0.6; }
+    .task-row.完 .task-事 { text-decoration: line-through; }
+    .task-勾 {
+      width: 20px;
+      height: 20px;
+      flex: 0 0 auto;
+      border-radius: 6px;
+      border: 1.5px solid #57534e;
+      background: #1c1917;
+      color: #6ee7b7;
+      font-size: 13px;
+      line-height: 1;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 0;
+      transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
+    }
+    .task-勾:hover { border-color: #a8a29e; }
+    .task-勾:active { transform: scale(0.9); }
+    .task-row.完 .task-勾 { background: #064e3b; border-color: #059669; }
+    .task-正文 { flex: 1; min-width: 0; }
+    .task-事 { font-size: 12.5px; color: #f5f5f4; line-height: 1.45; word-break: break-word; }
+    .task-想 { font-size: 11px; color: #a8a29e; line-height: 1.55; margin-top: 3px; }
+    .task-想::before { content: "她心里："; color: #78716c; }
+    .task-来头 { font-size: 10.5px; color: #78716c; margin-top: 3px; }
+    .task-del {
+      flex: 0 0 auto;
+      background: none;
+      border: none;
+      color: #78716c;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 2px 4px;
+      transition: color 0.18s ease;
+    }
+    .task-del:hover { color: #fca5a5; }
+    .task-add { display: flex; gap: 8px; margin-top: 4px; }
+    .task-add input {
+      flex: 1;
+      min-width: 0;
+      background: #1c1917;
+      border: 1px solid #57534e;
+      border-radius: 8px;
+      color: #f5f5f4;
+      font-size: 12px;
+      padding: 8px 10px;
+      font-family: inherit;
+      transition: border-color 0.18s ease;
+    }
+    .task-add input:focus { outline: none; border-color: #d97706; }
+    .task-空 { font-size: 11px; color: #78716c; padding: 4px 2px 10px; line-height: 1.6; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
   </style>
 </head>
@@ -580,7 +657,7 @@
       <div class="bulb-glass" id="bulb-lamp"></div>
     </div>
 
-    <div class="screen-corner" id="txt-scene">她在家等你</div>
+    <div class="screen-corner" id="txt-scene" onclick="openDialog('task')" title="看看今天要做什么">她在家等你</div>
 
     <div class="zhixia-char-wrap" id="char-wrap" onclick="petZhixia()" title="摸摸她的头">
       <div class="pet-heart" id="pet-heart">♥</div>
@@ -635,6 +712,10 @@
       <span class="icon">歇</span>
       <span>歇口气</span>
     </button>
+    <button class="act-btn blue" onclick="openDialog('task')">
+      <span class="icon">事</span>
+      <span>任务</span>
+    </button>
   </div>
   <div class="rest-hint" id="rest-hint"></div>
 
@@ -680,6 +761,15 @@
         <button class="cart-btn plain" onclick="清空车()">清空</button>
       </div>
     </div>
+  </div>
+
+  <!-- 任务弹窗：上面是每天固定的那几件，下面是她自己的事，可以自己加。 -->
+  <div class="sub-dialog" id="dlg-task">
+    <div class="dialog-header">
+      <span class="dialog-title">今天要做的事</span>
+      <button class="close-btn" onclick="closeDialog()">✕</button>
+    </div>
+    <div class="dialog-body" id="task-list"></div>
   </div>
 
   <!-- 一天的活干完了，坐下来歇口气。回一点体力，半小时一次，不能一直歇。 -->
@@ -926,8 +1016,60 @@
       数据.今日.药过 = 0;
       数据.今日.买过 = 0;
       数据.今日.出过工 = 0;
+      数据.今日.摸头加过 = 0;
+      数据.今日.饭点 = {};
     }
     数据.今日[项] = Number(数据.今日[项] ?? 0) + 1;
+  }
+
+  /* ── 任务清单 ─────────────────────────────
+   *
+   * 两块：
+   * 1. 每天固定的那几件（三顿饭、照料、出工、跑腿、摸头）由今日的计数推出来，不用存。
+   * 2. 她自己的事存在变量 `妹妹.任务` 里：事、想（她的心里话）、完。
+   *    她自己想的用数字键，玩家交代的用「哥」开头的键，面板照这个分别标注。
+   */
+
+  /** 每天固定的那几件。纯算数：只吃一份「今日」对象，好单测。 */
+  function 每日任务(今) {
+    const 今儿 = 今 && typeof 今 === 'object' ? 今 : {};
+    const 饭点 = 今儿.饭点 && typeof 今儿.饭点 === 'object' ? 今儿.饭点 : {};
+    const 有过 = (项, 次数) => Number(今儿[项] ?? 0) >= 次数;
+    const 吃过 = 段 => Number(饭点[段] ?? 0) > 0;
+    return [
+      { 名: '早饭喂她吃', 成: 吃过('早'), 细: '清晨或上午喂一次就算' },
+      { 名: '午饭喂她吃', 成: 吃过('午'), 细: '下午喂一次就算' },
+      { 名: '晚饭喂她吃', 成: 吃过('晚'), 细: '傍晚之后喂一次就算' },
+      { 名: '照料她一次', 成: 有过('药过', 1), 细: '温水、毛巾、药都算' },
+      { 名: '出一趟工', 成: 有过('出过工', 1), 细: '在「挣」页玩一局' },
+      { 名: '去小卖部一趟', 成: 有过('买过', 1), 细: '一天最多三趟，跑一趟就算做到' },
+      { 名: '摸摸她的头', 成: 有过('摸头加过', 1), 细: '一天最多靠摸头加 12 点心情' },
+    ];
+  }
+
+  /** 现在这顿算哪一餐。时段由正文推，面板只读。 */
+  function 这顿是哪餐() {
+    const 时 = String(存档().时间?.时段 ?? '傍晚');
+    if (时 === '清晨' || 时 === '上午') return '早';
+    if (时 === '下午' || 时 === '中午') return '午';
+    return '晚';
+  }
+
+  /** 喂她的时候顺手记一笔饭点。同一天里同一顿喂两回也只算吃过。 */
+  function 记饭点() {
+    const 数据 = 读变量();
+    const 餐 = 这顿是哪餐();
+    if (!数据.今日 || typeof 数据.今日 !== 'object') 数据.今日 = {};
+    if (!数据.今日.饭点 || typeof 数据.今日.饭点 !== 'object') 数据.今日.饭点 = {};
+    数据.今日.饭点[餐] = Number(数据.今日.饭点[餐] ?? 0) + 1;
+    写变量();
+    return 餐;
+  }
+
+  /** 今天三顿饭的样子，给回执用。 */
+  function 饭点话() {
+    const 饭点 = 存档().今日?.饭点 ?? {};
+    return ['早', '午', '晚'].map(段 => 段 + (Number(饭点[段] ?? 0) > 0 ? '✓' : '✗')).join(' ');
   }
 
   function 扣一个(名) {
@@ -1292,9 +1434,12 @@
 
     // 角落那行字报的是今天还剩多少次，玩家扫一眼就知道还能做什么。
     const 额度 = 今日额度();
+    const 每天 = 每日任务(存档().今日 ?? {});
+    const 做到 = 每天.filter(项 => 项.成).length;
     document.getElementById('txt-scene').innerText =
       '今天还剩：喂 ' + 额度.喂 + ' · 照顾 ' + 额度.药 + ' · 出门 ' + 额度.买 +
-      (额度.出工 > 0 ? ' · 出工 ' + 额度.出工 : ' · 今天已出工');
+      (额度.出工 > 0 ? ' · 出工 ' + 额度.出工 : ' · 今天已出工') +
+      '　|　任务 ' + 做到 + '/' + 每天.length;
 
     const 面 = document.getElementById('char-art');
     if (面 && 面.complete && 面.naturalWidth === 0) {
@@ -1558,6 +1703,7 @@
     if (type === 'care') renderCare();
     if (type === 'work') renderWork();
     if (type === 'shop') renderShop();
+    if (type === 'task') renderTask();
     框.classList.add('active');
   }
 
@@ -1618,12 +1764,16 @@
     数据.妹妹.饥饿 = 钳(前饥 + 货.饥饿);
     数据.妹妹.心情 = 钳(前心 + 货.心情);
     记今天的账('喂过');
+    const 餐 = 记饭点();
     写变量();
 
     const 剩 = Number(数据.物品?.[名]?.数量 ?? 0);
     她说话(抽(吃了的话(货)));
     提示(
-      回执([变化段('饱食', 前饥, 数据.妹妹.饥饿), 变化段('心情', 前心, 数据.妹妹.心情)], '柜子里还剩 ' + 名 + ' ' + 剩 + ' 份，今天还能喂 ' + 今日额度().喂 + ' 回'),
+      回执(
+        [变化段('饱食', 前饥, 数据.妹妹.饥饿), 变化段('心情', 前心, 数据.妹妹.心情)],
+        '这顿算' + 餐 + '饭（今天：' + 饭点话() + '）。柜子里还剩 ' + 名 + ' ' + 剩 + ' 份，今天还能喂 ' + 今日额度().喂 + ' 回',
+      ),
       5600,
       '好',
     );
@@ -1776,6 +1926,153 @@
         '<button class="item-act-btn" disabled>' + (额度.出工 <= 0 ? '今天做过了' : 够 ? '在「挣」页开工' : '体力不够') + '</button>';
       容器.appendChild(行);
     });
+  }
+
+  /* ── 任务弹窗 ─────────────────────────────
+   *
+   * 上半是每天固定的那几件，只读，由今日计数推出来。
+   * 下半是她自己的事，每条底下挂一句她的心里话（变量里的 `想`）。
+   * 玩家交代的事也写进同一个变量，键以「哥」开头，AI 之后会给它补心里话。
+   */
+
+  /** 造一个元素，顺带把类名和文字塞好。用 DOM 而不是拼 HTML，免得她把话里带进尖括号。 */
+  function 造(标签, 类, 文字) {
+    const 节点 = document.createElement(标签);
+    if (类) 节点.className = 类;
+    if (文字 !== undefined && 文字 !== null) 节点.textContent = String(文字);
+    return 节点;
+  }
+
+  function renderTask() {
+    const 容器 = document.getElementById('task-list');
+    if (!容器) return;
+    const 数据 = 存档();
+    const 今 = 数据.今日 ?? {};
+    const 妹 = 数据.妹妹 ?? {};
+    容器.innerHTML = '';
+
+    /* 一、每天固定的那几件 */
+    const 每天 = 每日任务(今);
+    const 做到 = 每天.filter(项 => 项.成).length;
+    const 段一 = 造('div', 'task-sec');
+    const 头一 = 造('div', 'task-title', '每天要做的事　');
+    头一.appendChild(造('span', '计数', 做到 + '/' + 每天.length));
+    段一.appendChild(头一);
+    每天.forEach(项 => {
+      const 行 = 造('div', 'task-row' + (项.成 ? ' 完' : ''));
+      行.appendChild(造('span', 'task-勾 只读', 项.成 ? '✓' : '○'));
+      const 文 = 造('div', 'task-正文');
+      文.appendChild(造('div', 'task-事', 项.名));
+      文.appendChild(造('div', 'task-来头', 项.细));
+      行.appendChild(文);
+      段一.appendChild(行);
+    });
+    容器.appendChild(段一);
+
+    /* 二、她自己的事 */
+    const 她的事 = Object.entries(妹.任务 ?? {}).filter(([, 条]) => String(条?.事 ?? '').trim());
+    她的事.sort((甲, 乙) => Number(甲[1].完 ?? 0) - Number(乙[1].完 ?? 0));
+    const 没做 = 她的事.filter(([, 条]) => Number(条.完 ?? 0) === 0).length;
+
+    const 段二 = 造('div', 'task-sec');
+    const 头二 = 造('div', 'task-title', '她自己的事　');
+    头二.appendChild(造('span', '计数', 她的事.length ? 没做 + ' 件没做' : '还空着'));
+    段二.appendChild(头二);
+
+    if (!她的事.length) {
+      段二.appendChild(造('p', 'task-空', '她还没惦记什么。你可以在下面交代一件，或者等正文里她自己想起来。'));
+    }
+
+    她的事.forEach(([键, 条]) => {
+      const 完 = Number(条.完 ?? 0) === 1;
+      const 行 = 造('div', 'task-row' + (完 ? ' 完' : ''));
+
+      const 勾 = 造('button', 'task-勾', 完 ? '✓' : '');
+      勾.title = 完 ? '标成还没做' : '标成做完了';
+      勾.addEventListener('click', () => 翻任务(键));
+      行.appendChild(勾);
+
+      const 文 = 造('div', 'task-正文');
+      文.appendChild(造('div', 'task-事', String(条.事 ?? '') + (完 ? '（做完了）' : '')));
+      const 想 = String(条.想 ?? '').trim();
+      if (想) 文.appendChild(造('div', 'task-想', 想));
+      else 文.appendChild(造('div', 'task-来头', '她还没说过这件事，等正文里她开口'));
+      文.appendChild(造('div', 'task-来头', String(键).startsWith('哥') ? '你交代的' : '她自己想的'));
+      行.appendChild(文);
+
+      const 删 = 造('button', 'task-del', '✕');
+      删.title = '删掉这一条';
+      删.addEventListener('click', () => 删任务(键));
+      行.appendChild(删);
+
+      段二.appendChild(行);
+    });
+
+    const 加 = 造('div', 'task-add');
+    const 输入 = 造('input');
+    输入.id = 'task-input';
+    输入.type = 'text';
+    输入.maxLength = 40;
+    输入.placeholder = '交代她一件事，例如：把窗花剪完';
+    输入.addEventListener('keydown', 事 => {
+      if (事.key === 'Enter') 加任务();
+    });
+    const 钮 = 造('button', 'cart-btn', '交代给她');
+    钮.addEventListener('click', () => 加任务());
+    加.appendChild(输入);
+    加.appendChild(钮);
+    段二.appendChild(加);
+
+    容器.appendChild(段二);
+  }
+
+  /** 玩家交代一件事：写进变量，键用「哥1、哥2」，AI 之后会给它补她的心里话。 */
+  function 加任务() {
+    const 框 = document.getElementById('task-input');
+    if (!框) return;
+    const 话 = String(框.value ?? '').trim();
+    if (!话) {
+      提示('先写一件要她做的事。', 2600, '差');
+      return;
+    }
+    const 数据 = 读变量();
+    if (!数据.妹妹 || typeof 数据.妹妹 !== 'object') return;
+    if (!数据.妹妹.任务 || typeof 数据.妹妹.任务 !== 'object') 数据.妹妹.任务 = {};
+
+    const 她的事 = 数据.妹妹.任务;
+    let 号 = 1;
+    while (她的事['哥' + 号]) 号++;
+    if (号 > 4) {
+      提示('你交代的事已经攒了四件，先让她做掉一些再添。', 3800, '差');
+      return;
+    }
+    她的事['哥' + 号] = { 事: 话, 想: '', 完: 0 };
+    写变量();
+    框.value = '';
+    提示('交代给她了：' + 话 + '。等她在正文里做，或者你替她打勾；她的心里话之后会补上来。', 6000, '好');
+    renderTask();
+  }
+
+  function 翻任务(键) {
+    const 数据 = 读变量();
+    const 条 = 数据.妹妹?.任务?.[键];
+    if (!条) return;
+    const 完 = Number(条.完 ?? 0) === 1 ? 0 : 1;
+    条.完 = 完;
+    写变量();
+    提示('「' + String(条.事 ?? '') + '」标成' + (完 ? '做完了。' : '还没做。'), 3200, 完 ? '好' : '常');
+    renderTask();
+  }
+
+  function 删任务(键) {
+    const 数据 = 读变量();
+    const 条 = 数据.妹妹?.任务?.[键];
+    if (!条) return;
+    const 事 = String(条.事 ?? '');
+    delete 数据.妹妹.任务[键];
+    写变量();
+    提示('删掉了：' + 事, 3000, '常');
+    renderTask();
   }
 
   function renderShop() {
