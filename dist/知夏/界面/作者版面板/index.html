@@ -446,10 +446,6 @@
       <span class="icon">市</span>
       <span>买点东西</span>
     </button>
-    <button class="act-btn green" onclick="sleepNight()">
-      <span class="icon">夜</span>
-      <span>安歇</span>
-    </button>
     <button class="act-btn blue" onclick="openDialog('pet')">
       <span class="icon">坐</span>
       <span>陪她</span>
@@ -457,6 +453,10 @@
     <button class="act-btn blue" onclick="openDialog('sync')">
       <span class="icon">阅</span>
       <span>数据</span>
+    </button>
+    <button class="act-btn green" onclick="说一句('我往厨房走了一趟，看看锅里还有什么。')">
+      <span class="icon">看</span>
+      <span>转转</span>
     </button>
   </div>
 
@@ -600,12 +600,47 @@
     document.getElementById('link-error').classList.remove('show');
   }
 
-  function 提示(话) {
+  function 提示(话, 毫秒) {
     const 框 = document.getElementById('notice');
     框.textContent = 话;
     框.classList.add('show');
     window.clearTimeout(提示.计时);
-    提示.计时 = window.setTimeout(() => 框.classList.remove('show'), 4200);
+    提示.计时 = window.setTimeout(() => 框.classList.remove('show'), 毫秒 || 4200);
+  }
+
+  /* ── 把面板上的动作送进正文 ─────────────────────────
+   *
+   * 这是「代入感」的关键一步：面板上做的事不能只改数字，还要变成正文里的一句话，
+   * 让 AI 接着写下去。所以每个动作都：先改变量，再往聊天里写一句第一人称的话，然后触发生成。
+   *
+   * 时间不受影响：这里从不改日历。日子只由真实时间推。
+   */
+  let 正在发言 = false;
+
+  async function 做一件(叙述, 紧凑话) {
+    if (正在发言) {
+      提示('上一件还在写，等它写完。', 2200);
+      return;
+    }
+    if (typeof createChatMessages !== 'function' || typeof triggerSlash !== 'function') {
+      提示(紧凑话 + '（这条面板单独打开时不能往正文里写，进酒馆就好。）', 6000);
+      return;
+    }
+    正在发言 = true;
+    try {
+      await createChatMessages([{ role: 'user', message: 叙述 }]);
+      await triggerSlash('/trigger');
+      提示(紧凑话);
+    } catch (错误) {
+      提示('没能写进正文：' + (错误 && 错误.message ? 错误.message : 错误), 6000);
+    } finally {
+      正在发言 = false;
+    }
+  }
+
+  /** 给「转转」这类不带状态变化的按钮用。 */
+  function 说一句(叙述) {
+    做一件(叙述, '把这一步交给正文了。');
   }
 
   /* ── 工具 ───────────────────────────────── */
@@ -650,16 +685,7 @@
     if (条.数量 <= 0) delete 数据.物品[名];
   }
 
-  /** 按总天数推年龄与阶段。基准八岁，和脚本那边一致。 */
-  function 推年龄() {
-    const 数据 = 存档();
-    const 天 = Number(数据.时间?.总天数 ?? 0);
-    const 新 = Math.min(16, 起始年龄 + Math.floor(天 / 一年天数));
-    if (新 !== Number(数据.妹妹?.年龄)) {
-      数据.妹妹.年龄 = 新;
-      数据.妹妹.阶段 = 新 < 9 ? 2 : 新 < 12 ? 3 : 4;
-    }
-  }
+  /* 面板不碰日历。年、月、日、季节、总天数、她的年龄都只由脚本按真实时间推。 */
 
   /* ── 渲染 ───────────────────────────────── */
 
@@ -732,25 +758,6 @@
     updateUI();
   }
 
-  function sleepNight() {
-    const 数据 = 读变量();
-    数据.时间.总天数 = Number(数据.时间.总天数 ?? 0) + 1;
-    数据.时间.时段 = '清晨';
-    const 天 = 数据.时间.总天数;
-    数据.时间.月 = Math.min(12, 9 + Math.floor(天 / 30));
-    数据.时间.日 = ((天 % 30) + 1);
-    数据.时间.季节 = (数据.时间.月 >= 12 || 数据.时间.月 <= 2) ? '冬' : 数据.时间.月 <= 5 ? '春' : 数据.时间.月 <= 8 ? '夏' : '秋';
-    数据.哥哥.体力 = 100;
-    数据.哥哥.今日已打工 = 0;
-    数据.今日 = { 日期: '', 陪过: 0, 哄睡过: 0, 出过工: 0 };
-    数据.妹妹.饥饿 = Math.max(15, (数据.妹妹.饥饿 ?? 70) - 20);
-    推年龄();
-    写变量();
-    document.getElementById('speech-bubble').innerText = '“哥哥早！今天知夏起得早，把洗脸水都打好啦。”';
-    提示('过了一夜。体力回满，今天又能出一次工、陪她一次。');
-    updateUI();
-  }
-
   function openDialog(type) {
     closeDialog();
     const 框 = document.getElementById('dlg-' + type);
@@ -802,9 +809,11 @@
     数据.妹妹.心情 = 钳((数据.妹妹.心情 ?? 60) + 货.心情);
     写变量();
     document.getElementById('speech-bubble').innerText = '知夏小口吃完了「' + 名 + '」：“哥哥，真好吃，你也吃一点！”';
-    提示('喂了她' + 名 + '。这个数已经写进角色卡，正文下一轮会知道。');
+    提示('喂了她' + 名 + '，饱食 +' + 货.饥饿 + '。');
     updateUI();
     renderFeed();
+    closeDialog();
+    做一件('我把' + 名 + '端到她面前，看她吃完。', '这一步已经交给正文了。');
   }
 
   function renderCare() {
@@ -842,9 +851,11 @@
     写变量();
     document.getElementById('speech-bubble').innerText =
       '知夏用了「' + 名 + '」，小声说：“哥哥不用替我花钱买药，知夏已经好受很多啦。”';
-    提示('用了' + 名 + '。');
+    提示('用了' + 名 + '，健康 +' + 货.健康 + '。');
     updateUI();
     renderCare();
+    closeDialog();
+    做一件('我给知夏用了' + 名 + '。', '这一步已经交给正文了。');
   }
 
   function renderWork() {
@@ -908,6 +919,8 @@
     提示('买了' + 名 + '，花了 ' + 价 + ' 元。');
     updateUI();
     renderShop();
+    closeDialog();
+    做一件('我下楼去王婶那儿买了' + 名 + '，花' + 价 + '块。', '这一步已经交给正文了。');
   }
 
   function renderPet() {
@@ -950,6 +963,7 @@
     提示('你' + 名 + '。今天的时间用掉了一次。');
     updateUI();
     closeDialog();
+    做一件('我' + 名 + '。', '这一步已经交给正文了。');
   }
 
   function renderSync() {
