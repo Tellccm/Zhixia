@@ -526,10 +526,7 @@
       60% { transform: translateY(0); border-top-color: #fcd34d; }
       100% { border-top-color: #44403c; }
     }
-    .item-card.在车里 { border-color: #d97706; background: #332a1f; }
-    .item-card.缺货 { opacity: 0.72; border-color: #57534e; background: #231f1e; }
     .缺 { color: #fca5a5; }
-    .qty { display: flex; align-items: center; gap: 5px; }
     .qty-btn {
       width: 26px;
       height: 26px;
@@ -625,6 +622,41 @@
     }
     .task-add input:focus { outline: none; border-color: #d97706; }
     .task-空 { font-size: 11px; color: #78716c; padding: 4px 2px 10px; line-height: 1.6; }
+    /* ── 商店：分类页签 + 两列格子 ───────────────
+       东西一多，拉成一长条滑来滑去不方便。改成一次只看一类、两列排，
+       一格里放名称、价钱、效果、剩余和加车按钮，说明放 tooltip。 */
+    .shop-tabs { display: flex; gap: 6px; padding: 0 2px 10px; }
+    .shop-tab {
+      flex: 1;
+      background: #292524;
+      border: 1px solid #57534e;
+      color: #a8a29e;
+      font-size: 12px;
+      padding: 7px 4px;
+      border-radius: 9px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+    }
+    .shop-tab:hover { border-color: #a8a29e; }
+    .shop-tab.现在 { background: #4a1d06; border-color: #d97706; color: #fde68a; font-weight: bold; }
+    .shop-group { font-size: 11.5px; color: #fcd34d; padding: 8px 2px; }
+    .shop-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .货格 {
+      background: #221f1e;
+      border: 1px solid #3a3634;
+      border-radius: 9px;
+      padding: 8px 9px;
+      transition: border-color 0.22s ease, background 0.22s ease, opacity 0.22s ease;
+    }
+    .货格.在车里 { border-color: #d97706; background: #332a1f; }
+    .货格.缺货 { opacity: 0.68; }
+    .货头 { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+    .货名 { font-size: 12.5px; color: #f5f5f4; font-weight: bold; }
+    .货价 { font-size: 11.5px; color: #fcd34d; }
+    .货效 { font-size: 10.5px; color: #a8a29e; line-height: 1.5; margin-top: 3px; min-height: 16px; }
+    .货效.缺 { color: #fca5a5; }
+    .货脚 { display: flex; justify-content: flex-end; align-items: center; gap: 5px; margin-top: 6px; min-height: 26px; }
     /* ── 出工的小游戏 ───────────────────────── */
     .game-head {
       display: flex;
@@ -890,14 +922,14 @@
     { 名: '旧棉鞋', 价: 46, 类: '衣物', 存: 2, 季: ['春', '秋', '冬'], 保暖: 3, 心情加成: 8, 说明: '她在屋里也穿着，脚不凉' },
     { 名: '棉布睡衣', 价: 68, 类: '衣物', 存: 2, 季: ['春', '秋'], 保暖: 2, 心情加成: 10, 说明: '小碎花，袖口和裤脚都收着边' },
     // 衣物：夏
-    { 名: '小裙子', 价: 68, 类: '衣物', 存: 3, 季: ['夏'], 露: true, 保暖: 0, 心情加成: 12, 说明: '她会在镜子前面转一圈' },
-    { 名: '连衣裙', 价: 120, 类: '衣物', 存: 2, 季: ['夏'], 露: true, 保暖: 0, 心情加成: 14, 说明: '过膝盖，她说不喜欢太长的' },
+    { 名: '小裙子', 价: 68, 类: '衣物', 存: 3, 常显: true, 季: ['夏'], 露: true, 保暖: 0, 心情加成: 12, 说明: '她会在镜子前面转一圈' },
+    { 名: '连衣裙', 价: 120, 类: '衣物', 存: 2, 常显: true, 季: ['夏'], 露: true, 保暖: 0, 心情加成: 14, 说明: '过膝盖，她说不喜欢太长的' },
     { 名: '短袖衫', 价: 45, 类: '衣物', 存: 3, 季: ['夏'], 露: true, 保暖: 0, 心情加成: 8, 说明: '她自己挑的花色' },
     { 名: '短袜', 价: 10, 类: '衣物', 存: 4, 季: ['夏'], 露: true, 保暖: 0, 心情加成: 2, 说明: '一板五双，配裙子穿' },
-    { 名: '丝袜', 价: 16, 类: '衣物', 存: 3, 季: ['春', '夏'], 露: true, 保暖: 0, 心情加成: 6, 说明: '薄的那种，她说穿上腿看着不一样' },
+    { 名: '丝袜', 价: 16, 类: '衣物', 存: 3, 常显: true, 季: ['春', '夏'], 露: true, 保暖: 0, 心情加成: 6, 说明: '薄的那种，她说穿上腿看着不一样' },
     { 名: '凉鞋', 价: 55, 类: '衣物', 存: 2, 季: ['夏'], 露: true, 保暖: 0, 心情加成: 7, 说明: '带子断了就缝，缝不住就换' },
-    { 名: '吊带睡裙', 价: 78, 类: '衣物', 存: 2, 季: ['夏'], 露: true, 保暖: 0, 心情加成: 11, 说明: '浅蓝的缎面，肩带细得像两根线' },
-    { 名: '比基尼', 价: 88, 类: '衣物', 存: 1, 季: ['夏'], 露: true, 保暖: 0, 心情加成: 15, 说明: '她不出门，你买回来她就红着脸收下，压在柜底' },
+    { 名: '吊带睡裙', 价: 78, 类: '衣物', 存: 2, 常显: true, 季: ['夏'], 露: true, 保暖: 0, 心情加成: 11, 说明: '浅蓝的缎面，肩带细得像两根线' },
+    { 名: '比基尼', 价: 88, 类: '衣物', 存: 1, 常显: true, 季: ['夏'], 露: true, 保暖: 0, 心情加成: 15, 说明: '她不出门，你买回来她就红着脸收下，压在柜底' },
     // 衣物：冬
     { 名: '棉衣', 价: 168, 类: '衣物', 存: 2, 季: ['冬'], 保暖: 5, 心情加成: 6, 说明: '过冬的，得趁早买' },
     { 名: '羽绒服', 价: 320, 类: '衣物', 存: 1, 季: ['冬'], 保暖: 8, 心情加成: 8, 说明: '贵，但冬天真的冷' },
@@ -921,10 +953,20 @@
     return 月转季[月] ?? '秋';
   }
 
-  /** 现在货架上摆得出来的：花钱的，并且当季。过季的整件收起来。 */
+  /**
+   * 现在货架上摆得出来的：
+   * - 花钱的；
+   * - 当季的（`季` 里有这一季），或者标了 `常显` 的。
+   * 标了 `常显` 的那几样（丝袜、小裙子、连衣裙、吊带睡裙、比基尼）四季都摆着，不做季节门槛：
+   * 她不出门，好看的东西什么时候买都说得通，玩家也不必等三个月才买得到。
+   */
   function 上架货() {
     const 季 = 现实季节();
-    return 货架.filter(货 => Number(货.价) > 0 && (!货.季 || 货.季.includes(季)));
+    return 货架.filter(货 => {
+      if (Number(货.价) <= 0) return false;
+      if (货.常显) return true;
+      return !货.季 || 货.季.includes(季);
+    });
   }
 
   /** 家里有的、这两张表里也认得的货。 */
@@ -2504,58 +2546,59 @@
     renderTask();
   }
 
+  /** 现在开着哪一类的页签。切页签不重算车，只是换个视角看货架。 */
+  let 商店页签 = '食物';
+
   function renderShop() {
     const 容器 = document.getElementById('shop-list');
     const 滚动位置 = 容器.scrollTop;
     const 钱 = Number(存档().钱 ?? 0);
     const 车 = 读车();
     const 账 = 算购物车(车, 钱);
+    const 当季 = 现实季节();
+    const 上架 = 上架货();
     容器.innerHTML = '';
 
     const 说明 = document.createElement('p');
     说明.className = 'dialog-note';
     说明.innerHTML =
-      '手上的钱 <b>￥' + 钱 + '</b>。挑好的先放车里，看着合计再一起结账。' +
-      '今天还能出门 <b>' + 今日额度().买 + '</b> 趟。<br>' +
-      '现在是<b>' + 现实季节() + '</b>（按真实月份算），货架上只摆这个季节能穿的，过季的衣服自己收起来了。<br>' +
-      '货架上的东西都有数，卖完就得等王婶上货，下次进货：<b>' + 下次进货话() + '</b>。<br>' +
-      '家里的热饭、热水、毛巾不用买，直接去「喂食」「照料」里用。';
+      '手上的钱 <b>￥' + 钱 + '</b>　今天还能出门 <b>' + 今日额度().买 + '</b> 趟　下次进货 <b>' + 下次进货话() + '</b><br>' +
+      '现在是现实里的<b>' + 当季 + '</b>天：只摆当季的，标了「不限季」的四季都摆着。<br>' +
+      '家里的热饭、热水、毛巾不用买，去「喂食」「照料」里用。';
     容器.appendChild(说明);
 
+    // 分类页签：一次只看一类，省得拉成一长条。
+    const 签条 = 造('div', 'shop-tabs');
     类别顺序.forEach(类 => {
-      const 这类的货 = 上架货().filter(货 => 货.类 === 类);
-      if (!这类的货.length) return;
-      const 头 = document.createElement('p');
-      头.className = 'dialog-note';
-      头.innerHTML = '—— ' + 类 + ' ——';
-      容器.appendChild(头);
-
-      这类的货.forEach(货 => {
-        const 车里 = 车里几件(货.名);
-        const 件 = 算限购(货.存 ?? 0, 剩几件(货.名), 车里);
-        const 行 = document.createElement('div');
-        行.className = 'item-card' + (车里 ? ' 在车里' : '') + (件.卖完 ? ' 缺货' : '');
-        const 库存话 = 件.卖完
-          ? '<span class="缺">卖完了，' + 下次进货话() + ' 上货</span>'
-          : '这一轮剩 <span class="小计">' + 件.剩 + '/' + 件.上限 + '</span>' +
-            (车里 ? '，车里 ' + 车里 + ' 件' : '') +
-            (件.可加 <= 0 ? '　<span class="缺">车里已占满</span>' : '');
-        行.innerHTML =
-          '<div class="item-info"><h4>' + 货.名 + '　<span class="小计">￥' + 货.价 + '</span></h4>' +
-          '<p>' + 效果话(货) + '</p><p>' + 库存话 + '</p></div>' +
-          (件.卖完
-            ? '<button class="item-act-btn" disabled>卖完了</button>'
-            : 车里
-              ? '<div class="qty">' +
-                '<button class="qty-btn" onclick="减车(\'' + 货.名 + '\')" title="从车里拿掉一件">−</button>' +
-                '<span class="qty-num">' + 车里 + '</span>' +
-                '<button class="qty-btn" ' + (件.可加 > 0 ? '' : 'disabled') + ' onclick="加车(\'' + 货.名 + '\')" title="' +
-                (件.可加 > 0 ? '再加一件' : '这一轮就这么多了') + '">+</button>' +
-                '</div>'
-              : '<button class="item-act-btn" onclick="加车(\'' + 货.名 + '\')">放进车里</button>');
-        容器.appendChild(行);
+      const 数 = 上架.filter(货 => 货.类 === 类).length;
+      const 钮 = 造('button', 'shop-tab' + (商店页签 === 类 ? ' 现在' : ''), 类 + ' ' + 数);
+      钮.title = '看' + 类 + '（' + 数 + ' 样）';
+      钮.addEventListener('click', () => {
+        商店页签 = 类;
+        renderShop();
       });
+      签条.appendChild(钮);
     });
+    容器.appendChild(签条);
+
+    const 这类的货 = 上架.filter(货 => 货.类 === 商店页签);
+    const 画一组 = (标题, 货们) => {
+      if (!货们.length) return;
+      容器.appendChild(造('div', 'shop-group', 标题));
+      const 网 = 造('div', 'shop-grid');
+      货们.forEach(货 => 网.appendChild(造货格(货)));
+      容器.appendChild(网);
+    };
+
+    if (!这类的货.length) {
+      容器.appendChild(造('p', 'task-空', '这一类现在没有货。'));
+    } else if (商店页签 === '衣物') {
+      // 衣物再分两组：当季的，和常年都摆的（含标了不限季的那几样）。
+      画一组('当季 · ' + 当季 + '天穿', 这类的货.filter(货 => !货.常显 && 货.季 && 货.季.includes(当季)));
+      画一组('常年都摆 · 不受季节影响', 这类的货.filter(货 => 货.常显 || !货.季));
+    } else {
+      画一组(商店页签, 这类的货);
+    }
 
     if (最近一次结账) {
       const 单 = document.createElement('p');
@@ -2567,6 +2610,59 @@
     刷新车条(账, 车);
     // 每次都重建列表，得把滚动位置放回去，不然加减一件就从顶上重新看起。
     容器.scrollTop = 滚动位置;
+  }
+
+  /** 货架上的一格：名称、价钱、效果、剩余，加车或加减。 */
+  function 造货格(货) {
+    const 车里 = 车里几件(货.名);
+    const 件 = 算限购(货.存 ?? 0, 剩几件(货.名), 车里);
+    const 格 = 造('div', '货格' + (车里 ? ' 在车里' : '') + (件.卖完 ? ' 缺货' : ''));
+    格.title = 货.名 + '：' + (货.说明 || '') + '（' + 效果话(货) + '）';
+
+    const 头 = 造('div', '货头');
+    头.appendChild(造('span', '货名', 货.名));
+    头.appendChild(造('span', '货价', '￥' + 货.价));
+    格.appendChild(头);
+
+    const 存话 = 件.卖完 ? '卖完了，' + 下次进货话() + ' 上货' : '剩 ' + 件.剩 + '/' + 件.上限;
+    格.appendChild(造('div', '货效' + (件.卖完 ? ' 缺' : ''), 短效果(货) + '　' + 存话));
+
+    const 脚 = 造('div', '货脚');
+    if (件.卖完) {
+      const 等 = 造('span', '小计', '等下一轮进货');
+      脚.appendChild(等);
+    } else if (车里) {
+      const 减 = 造('button', 'qty-btn', '−');
+      减.title = '从车里拿掉一件';
+      减.addEventListener('click', () => 减车(货.名));
+      const 加 = 造('button', 'qty-btn', '+');
+      加.disabled = 件.可加 <= 0;
+      加.title = 件.可加 > 0 ? '再加一件' : '这一轮就这么多了';
+      加.addEventListener('click', () => 加车(货.名));
+      脚.appendChild(减);
+      脚.appendChild(造('span', 'qty-num', 车里));
+      脚.appendChild(加);
+    } else {
+      const 加 = 造('button', 'item-act-btn', '放进车里');
+      加.addEventListener('click', () => 加车(货.名));
+      脚.appendChild(加);
+    }
+    格.appendChild(脚);
+    return 格;
+  }
+
+  /** 一格里只报关键的两三项，细节交给 tooltip。 */
+  function 短效果(货) {
+    if (货.保暖 !== undefined) {
+      const 季话 = 货.常显 ? '不限季' : 货.季 ? 货.季.join('／') + '天' : '四季';
+      return '保暖 ' + 货.保暖 + ' · 心情 +' + (货.心情加成 ?? 0) + ' · ' + 季话;
+    }
+    const 段 = [];
+    if (货.饥饿) 段.push('饱食 +' + 货.饥饿);
+    if (货.健康) 段.push('健康 +' + 货.健康);
+    if (货.心情) 段.push('心情 +' + 货.心情);
+    if (货.治) 段.push('治' + 货.治);
+    return 段.join(' · ') || '家里缺的小东西';
   }
 
   /** 一行说清这件货是干什么用的。衣物报保暖与穿上当天的心情。 */
