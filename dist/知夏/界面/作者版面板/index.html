@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <!--
-  知夏 · 电子宠物面板（作者版）
+  知夏 · 电子宠物面板（作者版 · 已接酒馆变量）
   放进公开仓库由 jsDelivr 提供，角色卡的正则把 [养成面板] 换成加载这个页面的语句。
 
-  维护须知：
-  - 图标用的是字符，仓库里不放 emoji 资源。
-  - 两张图默认写的是本地文件名（zhixia_rental_room.jpg / zhixia_character_art.jpg），
-    在 CDN 上会 404。角色卡里另有一支「面板补图」脚本，会在页面加载后按 id 把图换成仓库里的地址。
-    想自己换图，改那一支脚本里的两个常量即可，不用动这个文件。
+  数据来源：本面板不再自己存档。所有数字都读写角色卡的变量（MVU 的 stat_data），
+  和挂机结算脚本、正文里的变量更新规则共用同一份。所以在这个面板上喂她一口饭，
+  正文下一轮就会知道；正文说她饿了，这个面板也会跟着变。
+
+  改动记录（相对作者初版）：
+  - 去掉 localStorage 存档，改成读写 stat_data
+  - 六个 emoji 图标换成汉字，四列布局补成七格
+  - 状态条沿用原配色，数值取自变量
+  - 出工不再自己发钱：玩小游戏在另一块面板的「挣」页，这里是今日出工状态
 -->
 <html lang="zh-CN">
 <head>
@@ -27,8 +31,8 @@
       color: #f5f5f4;
       display: flex;
       justify-content: center;
-      align-items: center;
-      min-height: 100vh;
+      align-items: flex-start;
+      min-height: 100%;
       padding: 10px;
     }
     .panel-container {
@@ -50,6 +54,7 @@
       justify-content: space-between;
       align-items: center;
       border-bottom: 2px solid #44403c;
+      gap: 8px;
     }
     .date-badge {
       display: flex;
@@ -61,6 +66,18 @@
       border-radius: 8px;
       font-size: 12px;
       color: #fef3c7;
+      white-space: nowrap;
+    }
+    .date-badge .seal {
+      font-size: 10px;
+      color: #b45309;
+      letter-spacing: 0.1em;
+    }
+    .clock-badge {
+      font-size: 11px;
+      color: #a8a29e;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
     .money-badge {
       display: flex;
@@ -75,9 +92,20 @@
       color: #fde68a;
       font-family: monospace;
     }
+    .notice {
+      display: none;
+      padding: 7px 14px;
+      background: #0c0a09;
+      border-bottom: 1px solid #44403c;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: #fcd34d;
+    }
+    .notice.show { display: block; }
     .pet-screen {
       position: relative;
-      height: 380px;
+      flex: 1 1 auto;
+      min-height: 240px;
       background: #0c0a09;
       overflow: hidden;
     }
@@ -103,6 +131,7 @@
       flex-direction: column;
       align-items: center;
       cursor: pointer;
+      z-index: 3;
     }
     .bulb-cord { width: 2px; height: 30px; background: #57534e; }
     .bulb-glass {
@@ -114,6 +143,15 @@
       transition: all 0.3s;
     }
     .bulb-glass.off { background: #78716c; box-shadow: none; }
+    .screen-corner {
+      position: absolute;
+      top: 8px;
+      left: 12px;
+      font-size: 11px;
+      color: #d6d3d1;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+      z-index: 3;
+    }
     .zhixia-char-wrap {
       position: absolute;
       bottom: 12px;
@@ -123,6 +161,7 @@
       flex-direction: column;
       align-items: center;
       cursor: pointer;
+      z-index: 2;
     }
     .speech-bubble {
       background: rgba(255, 251, 235, 0.95);
@@ -162,6 +201,18 @@
     }
     .char-sprite-box:active { transform: scale(0.96); }
     .char-sprite-box img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+    .char-sprite-box .no-art {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #78716c;
+      text-align: center;
+      line-height: 1.6;
+      padding: 10px;
+    }
     .sickness-tag {
       position: absolute;
       top: 6px;
@@ -173,7 +224,19 @@
       padding: 2px 6px;
       border-radius: 10px;
       animation: pulse 1.5s infinite;
+      z-index: 4;
     }
+    .link-error {
+      display: none;
+      margin: 10px 14px 0;
+      padding: 9px 11px;
+      border-left: 3px solid #dc2626;
+      background: #1c1917;
+      font-size: 11.5px;
+      line-height: 1.6;
+      color: #fca5a5;
+    }
+    .link-error.show { display: block; }
     .vitals-bar {
       display: flex;
       justify-content: space-around;
@@ -184,6 +247,7 @@
     }
     .vital-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
     .vital-label { font-size: 11px; color: #a8a29e; }
+    .vital-label b { color: #f5f5f4; font-variant-numeric: tabular-nums; }
     .progress-track {
       width: 65px;
       height: 8px;
@@ -218,17 +282,31 @@
       gap: 4px;
       cursor: pointer;
       transition: all 0.15s;
+      font-family: inherit;
     }
     .act-btn:active { transform: translateY(2px); background: #44403c; }
-    .act-btn span.icon { font-size: 18px; }
+    .act-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .act-btn span.icon {
+      width: 26px;
+      height: 26px;
+      line-height: 26px;
+      text-align: center;
+      border-radius: 8px;
+      background: #1c1917;
+      font-size: 13px;
+      color: #fbbf24;
+    }
     .act-btn.primary { background: #78350f; border-color: #d97706; color: #fef3c7; }
+    .act-btn.primary span.icon { background: #4a1d06; color: #fde68a; }
     .act-btn.green { background: #064e3b; border-color: #059669; color: #d1fae5; }
+    .act-btn.green span.icon { background: #032b21; color: #6ee7b7; }
     .act-btn.blue { background: #1e3a8a; border-color: #3b82f6; color: #dbeafe; }
+    .act-btn.blue span.icon { background: #14275c; color: #93c5fd; }
     .sub-dialog {
       display: none;
       position: absolute;
       inset: 0;
-      background: rgba(12,10,9,0.92);
+      background: rgba(12,10,9,0.94);
       backdrop-filter: blur(4px);
       z-index: 50;
       flex-direction: column;
@@ -253,6 +331,7 @@
       height: 28px;
       cursor: pointer;
       font-size: 14px;
+      font-family: inherit;
     }
     .dialog-body { flex: 1; overflow-y: auto; }
     .item-card {
@@ -264,6 +343,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 10px;
     }
     .item-info h4 { font-size: 13px; color: #f5f5f4; margin-bottom: 3px; }
     .item-info p { font-size: 11px; color: #a8a29e; }
@@ -276,8 +356,16 @@
       border-radius: 8px;
       font-size: 12px;
       cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
     }
     .item-act-btn:disabled { background: #57534e; color: #a8a29e; cursor: not-allowed; }
+    .dialog-note {
+      font-size: 11px;
+      color: #a8a29e;
+      line-height: 1.6;
+      padding: 4px 2px 10px;
+    }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
   </style>
 </head>
@@ -286,36 +374,41 @@
 <div class="panel-container">
   <div class="top-bar">
     <div class="date-badge">
-      <span>第</span>
-      <span id="txt-date">第1年 · 9月1日 傍晚</span>
+      <span class="seal">剧本</span>
+      <span id="txt-date">1年 9月1日 · 傍晚</span>
     </div>
+    <span class="clock-badge" id="txt-clock"></span>
     <div class="money-badge">
       <span>￥</span>
       <span id="txt-money">320</span>
     </div>
   </div>
 
+  <div class="notice" id="notice"></div>
+
   <div class="pet-screen">
     <!-- 背景图：由角色卡里的「面板补图」脚本换成仓库地址；也可在这里直接填一个网络地址 -->
     <img src="zhixia_rental_room.jpg" class="screen-bg" id="room-bg" alt="老屋">
     <div class="room-tint" id="room-tint"></div>
 
-    <div class="bulb-fixture" onclick="toggleLight()">
+    <div class="bulb-fixture" onclick="toggleLight()" title="拉一下灯绳">
       <div class="bulb-cord"></div>
       <div class="bulb-glass" id="bulb-lamp"></div>
     </div>
 
+    <div class="screen-corner" id="txt-scene">她在家等你</div>
+
     <div class="zhixia-char-wrap" onclick="petZhixia()">
-      <div class="speech-bubble" id="speech-bubble">
-        “哥哥！你回来啦……今天外头风大，冷不冷？饭还热着呢，我用盘子扣在桌上了。”
-      </div>
+      <div class="speech-bubble" id="speech-bubble">“哥哥！你回来啦……”</div>
       <div class="char-sprite-box">
-        <!-- 立绘图：同上，由补图脚本换成仓库地址 -->
-        <img src="zhixia_character_art.jpg" alt="知夏">
+        <img src="zhixia_character_art.jpg" alt="知夏" id="char-art">
+        <div class="no-art" id="no-art" style="display:none">立绘还没放进来。<br>把图放进仓库的这个目录即可。</div>
         <div class="sickness-tag" id="sickness-tag" style="display:none;">发烧中</div>
       </div>
     </div>
   </div>
+
+  <div class="link-error" id="link-error"></div>
 
   <div class="vitals-bar">
     <div class="vital-item">
@@ -338,7 +431,7 @@
 
   <div class="action-grid">
     <button class="act-btn primary" onclick="openDialog('feed')">
-      <span class="icon">喂</span>
+      <span class="icon">碗</span>
       <span>喂食</span>
     </button>
     <button class="act-btn primary" onclick="openDialog('care')">
@@ -351,19 +444,19 @@
     </button>
     <button class="act-btn" onclick="openDialog('shop')">
       <span class="icon">市</span>
-      <span>市集</span>
+      <span>买点东西</span>
     </button>
     <button class="act-btn green" onclick="sleepNight()">
       <span class="icon">夜</span>
       <span>安歇</span>
     </button>
+    <button class="act-btn blue" onclick="openDialog('pet')">
+      <span class="icon">坐</span>
+      <span>陪她</span>
+    </button>
     <button class="act-btn blue" onclick="openDialog('sync')">
       <span class="icon">阅</span>
       <span>数据</span>
-    </button>
-    <button class="act-btn" onclick="openDialog('pet')">
-      <span class="icon">陪</span>
-      <span>陪她</span>
     </button>
   </div>
 
@@ -385,16 +478,16 @@
     <div class="dialog-body" id="care-list"></div>
   </div>
 
-  <!-- 出工打工弹窗 -->
+  <!-- 出工弹窗 -->
   <div class="sub-dialog" id="dlg-work">
     <div class="dialog-header">
-      <span class="dialog-title">外出打工 · 零工挣钱</span>
+      <span class="dialog-title">外出打工 · 今日的活</span>
       <button class="close-btn" onclick="closeDialog()">✕</button>
     </div>
     <div class="dialog-body" id="work-list"></div>
   </div>
 
-  <!-- 市集弹窗 -->
+  <!-- 买东西弹窗 -->
   <div class="sub-dialog" id="dlg-shop">
     <div class="dialog-header">
       <span class="dialog-title">王婶小卖部与菜市</span>
@@ -415,7 +508,7 @@
   <!-- 数据查看 -->
   <div class="sub-dialog" id="dlg-sync">
     <div class="dialog-header">
-      <span class="dialog-title">当前面板记下的数据</span>
+      <span class="dialog-title">角色卡里的变量</span>
       <button class="close-btn" onclick="closeDialog()">✕</button>
     </div>
     <div class="dialog-body" style="font-family:monospace; font-size:11px; color:#d6d3d1; white-space:pre-wrap; word-break:break-all;" id="sync-content"></div>
@@ -423,284 +516,462 @@
 </div>
 
 <script>
-  /* 面板自己的存档。
-   * 现在这份数据只存在浏览器本地（localStorage），和角色卡的变量是两套。
-   * 要让正文跟着这些数字走，得再接一步把状态写回楼层变量，那一步还没有做。 */
-  const 存档键 = 'zhixia_panel_standalone_state';
+  /* ── 数据层：全部读写角色卡的变量 ─────────────────────────
+   *
+   * 面板在酒馆的楼层 iframe 里跑，可以直接调酒馆助手的变量接口。
+   * 变量住在楼层变量的 stat_data 里（MVU 的用法），和挂机结算脚本、正文的更新规则共用同一份。
+   *
+   * 读：getVariables({type:'message', message_id: getCurrentMessageId()})
+   * 写：updateVariablesWith(表 => { 表.stat_data = 数据; return 表 }, 同一选项)
+   */
 
-  let state = {
-    day: 1,
-    timeOfDay: '傍晚',
-    money: 320,
-    lightOn: true,
-    zhixia: { age: 8, hunger: 70, mood: 60, health: 90, affection: 40, sickness: '无', outfit: '旧毛衣' },
-    brother: { energy: 80, workedToday: false },
-    inventory: {
-      '热汤挂面': { count: 2, hunger: 25, mood: 10, price: 3 },
-      '剩菜热饭': { count: 1, hunger: 20, mood: 8, price: 0 },
-      '大白兔奶糖': { count: 1, hunger: 5, mood: 20, price: 1 },
-      '温开水': { count: 99, health: 5, mood: 5, price: 0 },
-      '退烧片': { count: 1, health: 30, price: 4, cure: '发烧' },
-      '湿毛巾': { count: 99, health: 10, price: 0, cure: '发烧' }
-    }
-  };
+  const 变量选项 = { type: 'message', message_id: (typeof getCurrentMessageId === 'function' ? getCurrentMessageId() : -1) };
 
-  try {
-    const saved = localStorage.getItem(存档键);
-    if (saved) state = JSON.parse(saved);
-  } catch (e) {}
+  /** 和脚本、Schema 保持一致的常量。改这里就要改 schema.ts。 */
+  const 起始年龄 = 8;
+  const 一年天数 = 365;
+  const 时段表 = ['清晨', '上午', '下午', '傍晚', '夜里', '深夜'];
+  const 一天能陪几次 = 1;
 
-  function saveState() {
-    try { localStorage.setItem(存档键, JSON.stringify(state)); } catch (e) {}
-    updateUI();
+  /** 商品表。和 面板数据.ts 里的那几张表是同一批货，价钱与效果照抄。 */
+  const 食物 = [
+    { 名: '热汤挂面', 价: 3, 饥饿: 25, 心情: 6 },
+    { 名: '剩菜热饭', 价: 0, 饥饿: 20, 心情: 4 },
+    { 名: '大白兔奶糖', 价: 1, 饥饿: 5, 心情: 12 },
+  ];
+  const 药品 = [
+    { 名: '温开水', 价: 0, 健康: 5, 心情: 3 },
+    { 名: '湿毛巾', 价: 0, 健康: 8, 治: '发烧' },
+    { 名: '退烧片', 价: 4, 健康: 30, 治: '发烧' },
+  ];
+  const 市集 = [
+    { 名: '热汤挂面', 价: 3 },
+    { 名: '大白兔奶糖', 价: 1 },
+    { 名: '退烧片', 价: 4 },
+  ];
+
+  /** 家里有的、这两张表里也认得的货。 */
+  function 家里的(表) {
+    const 数据 = 存档();
+    return 表.filter(货 => Number(数据.物品?.[货.名]?.数量 ?? 0) > 0);
   }
 
+  let 面板数据 = null;
+
+  function 存档() {
+    return 面板数据 ?? { 时间: {}, 钱: 0, 哥哥: {}, 妹妹: {}, 今日: {}, 物品: {}, 衣柜: {} };
+  }
+
+  function 读变量() {
+    try {
+      const 表 = getVariables(变量选项);
+      const 数据 = 表?.stat_data;
+      if (数据 && typeof 数据 === 'object') {
+        面板数据 = 数据;
+        藏起报错();
+        return 数据;
+      }
+      显示报错('读到的变量是空的。这个面板要放在角色卡的楼层里，由酒馆提供变量接口才能用。');
+    } catch (错误) {
+      显示报错('读不到酒馆变量：' + (错误 && 错误.message ? 错误.message : 错误));
+    }
+    return 存档();
+  }
+
+  function 写变量() {
+    if (!面板数据) return;
+    try {
+      updateVariablesWith(表 => {
+        表.stat_data = 面板数据;
+        return 表;
+      }, 变量选项);
+    } catch (错误) {
+      显示报错('写不回酒馆变量：' + (错误 && 错误.message ? 错误.message : 错误));
+    }
+  }
+
+  function 显示报错(话) {
+    const 框 = document.getElementById('link-error');
+    框.textContent = 话;
+    框.classList.add('show');
+  }
+
+  function 藏起报错() {
+    document.getElementById('link-error').classList.remove('show');
+  }
+
+  function 提示(话) {
+    const 框 = document.getElementById('notice');
+    框.textContent = 话;
+    框.classList.add('show');
+    window.clearTimeout(提示.计时);
+    提示.计时 = window.setTimeout(() => 框.classList.remove('show'), 4200);
+  }
+
+  /* ── 工具 ───────────────────────────────── */
+
+  function 钳(值) {
+    return Math.max(0, Math.min(100, Math.round(Number(值) || 0)));
+  }
+
+  function 今天记号() {
+    const 时 = 存档().时间 ?? {};
+    return (时.年 ?? 1) + '-' + (时.月 ?? 1) + '-' + (时.日 ?? 1);
+  }
+
+  /** 今天还能陪几次。跟出工抢的是同一份时间。 */
+  function 今日额度() {
+    const 数据 = 存档();
+    const 今 = 数据.今日 ?? {};
+    if (String(今.日期 ?? '') !== 今天记号()) return { 陪: 一天能陪几次, 出工: 1 };
+    return {
+      陪: Math.max(0, 一天能陪几次 - Number(今.陪过 ?? 0)),
+      出工: Math.max(0, 1 - Number(今.出过工 ?? 0)),
+    };
+  }
+
+  function 记今天的账(项) {
+    const 数据 = 存档();
+    if (!数据.今日 || typeof 数据.今日 !== 'object') 数据.今日 = {};
+    if (String(数据.今日.日期 ?? '') !== 今天记号()) {
+      数据.今日.日期 = 今天记号();
+      数据.今日.陪过 = 0;
+      数据.今日.哄睡过 = 0;
+      数据.今日.出过工 = 0;
+    }
+    数据.今日[项] = Number(数据.今日[项] ?? 0) + 1;
+  }
+
+  function 扣一个(名) {
+    const 数据 = 存档();
+    const 条 = 数据.物品?.[名];
+    if (!条) return;
+    条.数量 = Number(条.数量) - 1;
+    if (条.数量 <= 0) delete 数据.物品[名];
+  }
+
+  /** 按总天数推年龄与阶段。基准八岁，和脚本那边一致。 */
+  function 推年龄() {
+    const 数据 = 存档();
+    const 天 = Number(数据.时间?.总天数 ?? 0);
+    const 新 = Math.min(16, 起始年龄 + Math.floor(天 / 一年天数));
+    if (新 !== Number(数据.妹妹?.年龄)) {
+      数据.妹妹.年龄 = 新;
+      数据.妹妹.阶段 = 新 < 9 ? 2 : 新 < 12 ? 3 : 4;
+    }
+  }
+
+  /* ── 渲染 ───────────────────────────────── */
+
+  let 灯亮着 = true;
+
   function updateUI() {
-    document.getElementById('txt-date').innerText = '第1年 · 9月' + state.day + '日 ' + state.timeOfDay;
-    document.getElementById('txt-money').innerText = state.money;
-    document.getElementById('val-hunger').innerText = state.zhixia.hunger;
-    document.getElementById('bar-hunger').style.width = state.zhixia.hunger + '%';
-    document.getElementById('val-mood').innerText = state.zhixia.mood;
-    document.getElementById('bar-mood').style.width = state.zhixia.mood + '%';
-    document.getElementById('val-health').innerText = state.zhixia.health;
-    document.getElementById('bar-health').style.width = state.zhixia.health + '%';
-    document.getElementById('val-energy').innerText = state.brother.energy;
-    document.getElementById('bar-energy').style.width = state.brother.energy + '%';
-    const sickTag = document.getElementById('sickness-tag');
-    sickTag.style.display = state.zhixia.sickness !== '无' ? 'block' : 'none';
-    sickTag.innerText = state.zhixia.sickness + '中';
+    const 数据 = 读变量();
+    const 时 = 数据.时间 ?? {};
+    const 妹 = 数据.妹妹 ?? {};
+    const 哥 = 数据.哥哥 ?? {};
+
+    document.getElementById('txt-date').innerText =
+      (时.年 ?? 1) + '年 ' + (时.月 ?? 1) + '月' + (时.日 ?? 1) + '日 · ' + (时.时段 ?? '傍晚') + ' · ' + (时.季节 ?? '秋');
+    document.getElementById('txt-money').innerText = 数据.钱 ?? 0;
+    document.getElementById('val-hunger').innerText = 妹.饥饿 ?? 0;
+    document.getElementById('bar-hunger').style.width = (妹.饥饿 ?? 0) + '%';
+    document.getElementById('val-mood').innerText = 妹.心情 ?? 0;
+    document.getElementById('bar-mood').style.width = (妹.心情 ?? 0) + '%';
+    document.getElementById('val-health').innerText = 妹.健康 ?? 0;
+    document.getElementById('bar-health').style.width = (妹.健康 ?? 0) + '%';
+    document.getElementById('val-energy').innerText = 哥.体力 ?? 0;
+    document.getElementById('bar-energy').style.width = (哥.体力 ?? 0) + '%';
+
+    const 病 = String(妹.病症 ?? '无');
+    const 标签 = document.getElementById('sickness-tag');
+    标签.style.display = 病 !== '无' ? 'block' : 'none';
+    标签.innerText = 病 + '中';
+
+    document.getElementById('txt-scene').innerText =
+      哥.今日已打工 === 1 ? '他今天已经出过一次工了' : '她在家等你';
+
+    const 面 = document.getElementById('char-art');
+    if (面 && 面.complete && 面.naturalWidth === 0) {
+      document.getElementById('no-art').style.display = 'flex';
+    }
+  }
+
+  function 现实时钟() {
+    const 现在 = new Date();
+    const 时 = String(现在.getHours()).padStart(2, '0');
+    const 分 = String(现在.getMinutes()).padStart(2, '0');
+    document.getElementById('txt-clock').innerText = 时 + ':' + 分;
   }
 
   function toggleLight() {
-    state.lightOn = !state.lightOn;
-    const bulb = document.getElementById('bulb-lamp');
-    const tint = document.getElementById('room-tint');
-    if (state.lightOn) {
-      bulb.classList.remove('off');
-      tint.style.background = 'radial-gradient(circle at 50% 20%, rgba(251,191,36,0.18) 0%, rgba(12,10,9,0.6) 80%)';
+    灯亮着 = !灯亮着;
+    const 泡 = document.getElementById('bulb-lamp');
+    const 罩 = document.getElementById('room-tint');
+    if (灯亮着) {
+      泡.classList.remove('off');
+      罩.style.background = 'radial-gradient(circle at 50% 20%, rgba(251,191,36,0.18) 0%, rgba(12,10,9,0.6) 80%)';
     } else {
-      bulb.classList.add('off');
-      tint.style.background = 'rgba(0,0,0,0.65)';
+      泡.classList.add('off');
+      罩.style.background = 'rgba(0,0,0,0.65)';
     }
-    saveState();
   }
 
+  const 闲话 = [
+    '“哥哥！你手真暖和，今天在外头吹冷风冻着没？”',
+    '“知夏有乖乖听话，碗都擦得干干净净了。”',
+    '“作业我写完了，等你回来才吃饭的。”',
+    '“哥哥，楼下王婶问我你最近忙啥呢。”',
+  ];
+
   function petZhixia() {
-    state.zhixia.mood = Math.min(100, state.zhixia.mood + 6);
-    state.zhixia.affection = Math.min(100, state.zhixia.affection + 4);
-    const quotes = [
-      '知夏被摸了摸小脑袋，不好意思地抿着嘴笑，小手轻轻拉了拉你的袖口。',
-      '“哥哥！你手真暖和，今天在外头吹冷风冻着没？”',
-      '她仰起大眼睛看着你：“知夏有乖乖听话，碗都擦得干干净净了！”'
-    ];
-    document.getElementById('speech-bubble').innerText = quotes[Math.floor(Math.random() * quotes.length)];
-    saveState();
+    const 数据 = 读变量();
+    数据.妹妹.心情 = 钳((数据.妹妹.心情 ?? 60) + 2);
+    写变量();
+    document.getElementById('speech-bubble').innerText = 闲话[Math.floor(Math.random() * 闲话.length)];
+    updateUI();
   }
 
   function sleepNight() {
-    state.day += 1;
-    state.brother.energy = 100;
-    state.brother.workedToday = false;
-    state.zhixia.hunger = Math.max(15, state.zhixia.hunger - 20);
-    state.timeOfDay = '清晨';
+    const 数据 = 读变量();
+    数据.时间.总天数 = Number(数据.时间.总天数 ?? 0) + 1;
+    数据.时间.时段 = '清晨';
+    const 天 = 数据.时间.总天数;
+    数据.时间.月 = Math.min(12, 9 + Math.floor(天 / 30));
+    数据.时间.日 = ((天 % 30) + 1);
+    数据.时间.季节 = (数据.时间.月 >= 12 || 数据.时间.月 <= 2) ? '冬' : 数据.时间.月 <= 5 ? '春' : 数据.时间.月 <= 8 ? '夏' : '秋';
+    数据.哥哥.体力 = 100;
+    数据.哥哥.今日已打工 = 0;
+    数据.今日 = { 日期: '', 陪过: 0, 哄睡过: 0, 出过工: 0 };
+    数据.妹妹.饥饿 = Math.max(15, (数据.妹妹.饥饿 ?? 70) - 20);
+    推年龄();
+    写变量();
     document.getElementById('speech-bubble').innerText = '“哥哥早！今天知夏起得早，把洗脸水都打好啦。”';
-    saveState();
+    提示('过了一夜。体力回满，今天又能出一次工、陪她一次。');
+    updateUI();
   }
 
   function openDialog(type) {
     closeDialog();
-    const dlg = document.getElementById('dlg-' + type);
-    if (!dlg) return;
+    const 框 = document.getElementById('dlg-' + type);
+    if (!框) return;
     if (type === 'feed') renderFeed();
     if (type === 'care') renderCare();
     if (type === 'work') renderWork();
     if (type === 'shop') renderShop();
     if (type === 'pet') renderPet();
     if (type === 'sync') renderSync();
-    dlg.classList.add('active');
+    框.classList.add('active');
   }
 
   function closeDialog() {
-    document.querySelectorAll('.sub-dialog').forEach(d => d.classList.remove('active'));
+    document.querySelectorAll('.sub-dialog').forEach(框 => 框.classList.remove('active'));
+  }
+
+  function 空列表(容器, 话) {
+    容器.innerHTML = '<p class="dialog-note">' + 话 + '</p>';
   }
 
   function renderFeed() {
-    const list = document.getElementById('feed-list');
-    list.innerHTML = '';
-    ['热汤挂面', '剩菜热饭', '大白兔奶糖'].forEach(f => {
-      const item = state.inventory[f];
-      if (!item) return;
-      const row = document.createElement('div');
-      row.className = 'item-card';
-      row.innerHTML = `
-        <div class="item-info">
-          <h4>${f}（剩 ${item.count} 份）</h4>
-          <p>饱食 +${item.hunger || 0}，心情 +${item.mood || 0}</p>
-        </div>
-        <button class="item-act-btn" ${item.count <= 0 ? 'disabled' : ''} onclick="feed('${f}')">喂她吃</button>
-      `;
-      list.appendChild(row);
+    const 容器 = document.getElementById('feed-list');
+    const 有 = 家里的(食物);
+    if (!有.length) {
+      空列表(容器, '家里没有现成能吃的东西。去「买点东西」买一份，或者自己下厨做一顿。');
+      return;
+    }
+    容器.innerHTML = '';
+    有.forEach(货 => {
+      const 数 = Number(存档().物品[货.名].数量);
+      const 行 = document.createElement('div');
+      行.className = 'item-card';
+      行.innerHTML =
+        '<div class="item-info"><h4>' + 货.名 + '（剩 ' + 数 + ' 份）</h4>' +
+        '<p>饱食 +' + 货.饥饿 + '，心情 +' + 货.心情 + '</p></div>' +
+        '<button class="item-act-btn" onclick="feed(\'' + 货.名 + '\')">喂她吃</button>';
+      容器.appendChild(行);
     });
   }
 
-  function feed(name) {
-    const item = state.inventory[name];
-    if (item && item.count > 0) {
-      item.count--;
-      state.zhixia.hunger = Math.min(100, state.zhixia.hunger + (item.hunger || 0));
-      state.zhixia.mood = Math.min(100, state.zhixia.mood + (item.mood || 0));
-      document.getElementById('speech-bubble').innerText = `知夏小口吃完了「${name}」：“哥哥，真好吃，你也吃一点！”`;
-      saveState();
-      renderFeed();
-    }
+  function feed(名) {
+    const 数据 = 读变量();
+    if (Number(数据.物品?.[名]?.数量 ?? 0) <= 0) return;
+    const 货 = 食物.find(x => x.名 === 名);
+    if (!货) return;
+    扣一个(名);
+    数据.妹妹.饥饿 = 钳((数据.妹妹.饥饿 ?? 70) + 货.饥饿);
+    数据.妹妹.心情 = 钳((数据.妹妹.心情 ?? 60) + 货.心情);
+    写变量();
+    document.getElementById('speech-bubble').innerText = '知夏小口吃完了「' + 名 + '」：“哥哥，真好吃，你也吃一点！”';
+    提示('喂了她' + 名 + '。这个数已经写进角色卡，正文下一轮会知道。');
+    updateUI();
+    renderFeed();
   }
 
   function renderCare() {
-    const list = document.getElementById('care-list');
-    list.innerHTML = '';
-    ['温开水', '退烧片', '湿毛巾'].forEach(m => {
-      const item = state.inventory[m];
-      if (!item) return;
-      const row = document.createElement('div');
-      row.className = 'item-card';
-      row.innerHTML = `
-        <div class="item-info">
-          <h4>${m}（${item.count > 50 ? '充足' : '剩 ' + item.count + ' 份'}）</h4>
-          <p>健康 +${item.health || 0}${item.cure ? '，针对' + item.cure : ''}</p>
-        </div>
-        <button class="item-act-btn" ${item.count <= 0 ? 'disabled' : ''} onclick="care('${m}')">照料</button>
-      `;
-      list.appendChild(row);
+    const 容器 = document.getElementById('care-list');
+    const 有 = 家里的(药品);
+    if (!有.length) {
+      空列表(容器, '家里没有能用的药。她要是病了，去「买点东西」里看看。');
+      return;
+    }
+    const 病 = String(存档().妹妹?.病症 ?? '无');
+    容器.innerHTML = '';
+    有.forEach(货 => {
+      const 数 = Number(存档().物品[货.名].数量);
+      const 对症 = !货.治 || 货.治 === 病;
+      const 行 = document.createElement('div');
+      行.className = 'item-card';
+      行.innerHTML =
+        '<div class="item-info"><h4>' + 货.名 + '（剩 ' + 数 + ' 份）</h4>' +
+        '<p>健康 +' + 货.健康 + (货.治 ? '，针对' + 货.治 + (对症 ? '' : '（现在不对症）') : '') + '</p></div>' +
+        '<button class="item-act-btn" onclick="care(\'' + 货.名 + '\')">用上</button>';
+      容器.appendChild(行);
     });
   }
 
-  function care(name) {
-    const item = state.inventory[name];
-    if (item && item.count > 0) {
-      if (item.count <= 50) item.count--;
-      state.zhixia.health = Math.min(100, state.zhixia.health + (item.health || 0));
-      if (item.cure && state.zhixia.sickness === item.cure) {
-        state.zhixia.sickness = '无';
-      }
-      document.getElementById('speech-bubble').innerText = `知夏用了「${name}」，小声说：“哥哥不用替我花钱买药，知夏已经好受很多啦。”`;
-      saveState();
-      renderCare();
+  function care(名) {
+    const 数据 = 读变量();
+    if (Number(数据.物品?.[名]?.数量 ?? 0) <= 0) return;
+    const 货 = 药品.find(x => x.名 === 名);
+    if (!货) return;
+    扣一个(名);
+    数据.妹妹.健康 = 钳((数据.妹妹.健康 ?? 90) + 货.健康);
+    if (货.治 && String(数据.妹妹.病症 ?? '无') === 货.治 && 数据.妹妹.健康 >= 85) {
+      数据.妹妹.病症 = '无';
     }
+    写变量();
+    document.getElementById('speech-bubble').innerText =
+      '知夏用了「' + 名 + '」，小声说：“哥哥不用替我花钱买药，知夏已经好受很多啦。”';
+    提示('用了' + 名 + '。');
+    updateUI();
+    renderCare();
   }
 
   function renderWork() {
-    const list = document.getElementById('work-list');
-    list.innerHTML = '';
-    const jobs = [
-      { name: '城东工地 · 搬料配重', pay: 55, cost: 35 },
-      { name: '巷口饭店 · 后厨备菜', pay: 40, cost: 25 },
-      { name: '夜市窄巷 · 送货出工', pay: 60, cost: 30 }
+    const 容器 = document.getElementById('work-list');
+    const 数据 = 存档();
+    const 额度 = 今日额度();
+    const 体力 = Number(数据.哥哥?.体力 ?? 0);
+    const 熟练 = 数据.进度?.熟练 ?? {};
+    const 活 = [
+      { 名: '城东工地 · 搬料配重', 地: '工地', 体内: 22, 薪: 90 },
+      { 名: '巷口饭店 · 后厨备菜', 地: '后厨', 体内: 15, 薪: 110 },
+      { 名: '南门仓库 · 分拣', 地: '仓库', 体内: 18, 薪: 100 },
+      { 名: '夜市窄巷 · 送货', 地: '夜市', 体内: 25, 薪: 140 },
     ];
-    jobs.forEach(j => {
-      const can = state.brother.energy >= j.cost && !state.brother.workedToday;
-      const row = document.createElement('div');
-      row.className = 'item-card';
-      row.innerHTML = `
-        <div class="item-info">
-          <h4>${j.name}</h4>
-          <p>日结 ￥${j.pay}，体力 -${j.cost}</p>
-        </div>
-        <button class="item-act-btn" ${!can ? 'disabled' : ''} onclick="doWork(${j.pay}, ${j.cost})">接活出工</button>
-      `;
-      list.appendChild(row);
+    容器.innerHTML = '';
+    const 说明 = document.createElement('p');
+    说明.className = 'dialog-note';
+    说明.innerHTML =
+      '今天还能出工：' + 额度.出工 + ' 次　现在体力 ' + 体力 + '<br>' +
+      '出工要玩一局手上的活，那一局在另一块面板的「挣」页里。这里只报今天的状态，不重复发钱。';
+    容器.appendChild(说明);
+    活.forEach(j => {
+      const 行 = document.createElement('div');
+      行.className = 'item-card';
+      const 够 = 体力 >= j.体内;
+      行.innerHTML =
+        '<div class="item-info"><h4>' + j.名 + '</h4>' +
+        '<p>时薪 ' + j.薪 + '，体力 -' + j.体内 + '，熟练 ' + (熟练[j.地] ?? 0) +
+        (额度.出工 <= 0 ? '（今天已经出过了）' : 够 ? '' : '（体力不够）') + '</p></div>' +
+        '<button class="item-act-btn" disabled>' + (额度.出工 <= 0 ? '今天做过了' : 够 ? '在「挣」页开工' : '体力不够') + '</button>';
+      容器.appendChild(行);
     });
-  }
-
-  function doWork(pay, cost) {
-    state.money += pay;
-    state.brother.energy = Math.max(0, state.brother.energy - cost);
-    state.brother.workedToday = true;
-    document.getElementById('speech-bubble').innerText = `“哥哥今天辛苦了！兜里结了 ￥${pay}，快坐下歇歇脚，我给你盛饭。”`;
-    saveState();
-    closeDialog();
   }
 
   function renderShop() {
-    const list = document.getElementById('shop-list');
-    list.innerHTML = '';
-    const wares = [
-      { name: '热汤挂面', price: 3 },
-      { name: '大白兔奶糖', price: 1 },
-      { name: '退烧片', price: 4 }
-    ];
-    wares.forEach(w => {
-      const can = state.money >= w.price;
-      const row = document.createElement('div');
-      row.className = 'item-card';
-      row.innerHTML = `
-        <div class="item-info">
-          <h4>${w.name}</h4>
-          <p>单价 ￥${w.price}</p>
-        </div>
-        <button class="item-act-btn" ${!can ? 'disabled' : ''} onclick="buy('${w.name}', ${w.price})">买一份</button>
-      `;
-      list.appendChild(row);
+    const 容器 = document.getElementById('shop-list');
+    const 钱 = Number(存档().钱 ?? 0);
+    容器.innerHTML = '';
+    const 说明 = document.createElement('p');
+    说明.className = 'dialog-note';
+    说明.innerHTML = '手上的钱 ￥' + 钱 + '。买回来的东西会进家里的柜子，去「喂食」或「照料」里用。';
+    容器.appendChild(说明);
+    市集.forEach(w => {
+      const 够 = 钱 >= w.价;
+      const 行 = document.createElement('div');
+      行.className = 'item-card';
+      行.innerHTML =
+        '<div class="item-info"><h4>' + w.名 + '</h4><p>单价 ￥' + w.价 + '</p></div>' +
+        '<button class="item-act-btn" ' + (够 ? '' : 'disabled') + ' onclick="buy(\'' + w.名 + '\', ' + w.价 + ')">买一份</button>';
+      容器.appendChild(行);
     });
   }
 
-  function buy(name, price) {
-    if (state.money >= price) {
-      state.money -= price;
-      if (!state.inventory[name]) state.inventory[name] = { count: 0 };
-      state.inventory[name].count++;
-      saveState();
-      renderShop();
-    }
+  function buy(名, 价) {
+    const 数据 = 读变量();
+    if (Number(数据.钱 ?? 0) < 价) return;
+    数据.钱 = Number(数据.钱) - 价;
+    if (!数据.物品[名]) 数据.物品[名] = { 数量: 0, 类别: '食物' };
+    数据.物品[名].数量 = Number(数据.物品[名].数量) + 1;
+    写变量();
+    提示('买了' + 名 + '，花了 ' + 价 + ' 元。');
+    updateUI();
+    renderShop();
   }
 
   function renderPet() {
-    const list = document.getElementById('pet-list');
-    list.innerHTML = '';
+    const 容器 = document.getElementById('pet-list');
+    const 额度 = 今日额度();
+    容器.innerHTML = '';
+    const 说明 = document.createElement('p');
+    说明.className = 'dialog-note';
+    说明.innerHTML =
+      '今天还能陪她：' + 额度.陪 + ' 次。<br>他一天只有这么多时间，陪她就没空出工，出工就不能陪。跨过一天刷新。';
+    容器.appendChild(说明);
     const 事 = [
-      { name: '坐在她旁边，听她讲今天的事', mood: 12, affection: 3 },
-      { name: '陪她把作业写完', mood: 10, affection: 4 },
-      { name: '一块儿去楼下走走', mood: 14, affection: 2 }
+      { 名: '坐在她旁边，听她讲今天的事', 心情: 12, 依赖: 3 },
+      { 名: '陪她把作业写完', 心情: 10, 依赖: 4 },
+      { 名: '一块儿去楼下走走', 心情: 14, 依赖: 2 },
     ];
     事.forEach(x => {
-      const row = document.createElement('div');
-      row.className = 'item-card';
-      row.innerHTML = `
-        <div class="item-info">
-          <h4>${x.name}</h4>
-          <p>心情 +${x.mood}，依赖 +${x.affection}</p>
-        </div>
-        <button class="item-act-btn" onclick="陪她('${x.name}', ${x.mood}, ${x.affection})">就这样</button>
-      `;
-      list.appendChild(row);
+      const 行 = document.createElement('div');
+      行.className = 'item-card';
+      行.innerHTML =
+        '<div class="item-info"><h4>' + x.名 + '</h4><p>心情 +' + x.心情 + '，依赖 +' + x.依赖 + '</p></div>' +
+        '<button class="item-act-btn" ' + (额度.陪 <= 0 ? 'disabled' : '') +
+        ' onclick="陪她(\'' + x.名 + '\', ' + x.心情 + ', ' + x.依赖 + ')">' +
+        (额度.陪 <= 0 ? '今天陪过了' : '就这样') + '</button>';
+      容器.appendChild(行);
     });
   }
 
   function 陪她(名, 心情, 依赖) {
-    state.zhixia.mood = Math.min(100, state.zhixia.mood + 心情);
-    state.zhixia.affection = Math.min(100, state.zhixia.affection + 依赖);
-    document.getElementById('speech-bubble').innerText = `你${名}。她话多了起来，说到一半自己先笑了。`;
-    saveState();
+    if (今日额度().陪 <= 0) {
+      提示('今天已经陪过她了。想再多陪，得等正文里过一天。');
+      return;
+    }
+    const 数据 = 读变量();
+    数据.妹妹.心情 = 钳((数据.妹妹.心情 ?? 60) + 心情);
+    数据.妹妹.依赖 = 钳((数据.妹妹.依赖 ?? 40) + 依赖);
+    记今天的账('陪过');
+    写变量();
+    document.getElementById('speech-bubble').innerText = '你' + 名 + '。她话多了起来，说到一半自己先笑了。';
+    提示('你' + 名 + '。今天的时间用掉了一次。');
+    updateUI();
     closeDialog();
   }
 
   function renderSync() {
-    const mvu = {
-      时间: { 日: state.day, 时段: state.timeOfDay },
-      钱: state.money,
-      哥哥: { 体力: state.brother.energy, 今日已打工: state.brother.workedToday ? 1 : 0 },
-      妹妹: {
-        年龄: state.zhixia.age,
-        饥饿: state.zhixia.hunger,
-        心情: state.zhixia.mood,
-        健康: state.zhixia.health,
-        依赖: state.zhixia.affection,
-        病症: state.zhixia.sickness
-      }
-    };
-    document.getElementById('sync-content').innerText = JSON.stringify(mvu, null, 2);
+    const 数据 = 读变量();
+    document.getElementById('sync-content').innerText = JSON.stringify(数据, null, 2);
   }
 
-  updateUI();
+  /* ── 起手 ───────────────────────────────── */
+
+  function 起手() {
+    updateUI();
+    现实时钟();
+    window.setInterval(现实时钟, 20000);
+    window.setInterval(updateUI, 3000);
+    const 面 = document.getElementById('char-art');
+    if (面) 面.addEventListener('error', () => {
+      document.getElementById('no-art').style.display = 'flex';
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', 起手);
+  else 起手();
 </script>
 </body>
 </html>
