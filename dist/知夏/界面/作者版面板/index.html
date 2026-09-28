@@ -809,7 +809,7 @@
     心.classList.add('跳');
 
     // 摸够了也照样有反应，只是话不一样。
-    // 气泡里只放她的话，不写「她被你摸得有点不好意思了」这类旁白。
+    // 气泡里只放她的话，前面不写旁白（例如「她有点不好意思了：」这种一律不加）。
     document.getElementById('speech-bubble').innerText =
       加 > 0 ? 闲话[Math.floor(Math.random() * 闲话.length)] : '“哥，你摸够没有呀。”';
     updateUI();
