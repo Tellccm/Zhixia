@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<!--
+  知夏 · 电子宠物面板（作者版）
+  放进公开仓库由 jsDelivr 提供，角色卡的正则把 [养成面板] 换成加载这个页面的语句。
+
+  维护须知：
+  - 图标用的是字符，仓库里不放 emoji 资源。
+  - 两张图默认写的是本地文件名（zhixia_rental_room.jpg / zhixia_character_art.jpg），
+    在 CDN 上会 404。角色卡里另有一支「面板补图」脚本，会在页面加载后按 id 把图换成仓库里的地址。
+    想自己换图，改那一支脚本里的两个常量即可，不用动这个文件。
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>知夏 · 电子宠物养成面板</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      user-select: none;
+    }
+    body {
+      background: #1c1917;
+      color: #f5f5f4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 10px;
+    }
+    .panel-container {
+      width: 100%;
+      max-width: 480px;
+      background: #292524;
+      border: 3px solid #78350f;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.8), inset 0 0 15px rgba(180,83,9,0.2);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .top-bar {
+      background: linear-gradient(180deg, #1c1917 0%, #292524 100%);
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #44403c;
+    }
+    .date-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #1c1917;
+      border: 1px solid #78350f;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #fef3c7;
+    }
+    .money-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #451a03;
+      border: 1px solid #b45309;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #fde68a;
+      font-family: monospace;
+    }
+    .pet-screen {
+      position: relative;
+      height: 380px;
+      background: #0c0a09;
+      overflow: hidden;
+    }
+    .screen-bg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.95;
+      transition: filter 0.5s;
+    }
+    .room-tint {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 20%, rgba(251,191,36,0.18) 0%, rgba(12,10,9,0.6) 80%);
+      pointer-events: none;
+    }
+    .bulb-fixture {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+    }
+    .bulb-cord { width: 2px; height: 30px; background: #57534e; }
+    .bulb-glass {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #fef08a;
+      box-shadow: 0 0 25px 12px rgba(253, 224, 71, 0.6);
+      transition: all 0.3s;
+    }
+    .bulb-glass.off { background: #78716c; box-shadow: none; }
+    .zhixia-char-wrap {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+    }
+    .speech-bubble {
+      background: rgba(255, 251, 235, 0.95);
+      color: #292524;
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.4;
+      max-width: 260px;
+      margin-bottom: 8px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      position: relative;
+      border: 1.5px solid #b45309;
+    }
+    .speech-bubble::after {
+      content: "";
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%) rotate(45deg);
+      width: 10px;
+      height: 10px;
+      background: #fffbeb;
+      border-right: 1.5px solid #b45309;
+      border-bottom: 1.5px solid #b45309;
+    }
+    .char-sprite-box {
+      width: 140px;
+      height: 190px;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 3px solid #b45309;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      position: relative;
+      background: #1c1917;
+      transition: transform 0.2s;
+    }
+    .char-sprite-box:active { transform: scale(0.96); }
+    .char-sprite-box img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+    .sickness-tag {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: #dc2626;
+      color: #fff;
+      font-size: 10px;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 10px;
+      animation: pulse 1.5s infinite;
+    }
+    .vitals-bar {
+      display: flex;
+      justify-content: space-around;
+      background: #1c1917;
+      padding: 8px 10px;
+      border-top: 1px solid #44403c;
+      border-bottom: 1px solid #44403c;
+    }
+    .vital-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .vital-label { font-size: 11px; color: #a8a29e; }
+    .progress-track {
+      width: 65px;
+      height: 8px;
+      background: #292524;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid #57534e;
+    }
+    .progress-fill { height: 100%; transition: width 0.4s ease; }
+    .fill-hunger { background: #f59e0b; }
+    .fill-mood { background: #eab308; }
+    .fill-health { background: #10b981; }
+    .fill-energy { background: #3b82f6; }
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 12px;
+      background: #1c1917;
+    }
+    .act-btn {
+      background: #292524;
+      border: 1.5px solid #57534e;
+      color: #e7e5e4;
+      padding: 8px 4px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .act-btn:active { transform: translateY(2px); background: #44403c; }
+    .act-btn span.icon { font-size: 18px; }
+    .act-btn.primary { background: #78350f; border-color: #d97706; color: #fef3c7; }
+    .act-btn.green { background: #064e3b; border-color: #059669; color: #d1fae5; }
+    .act-btn.blue { background: #1e3a8a; border-color: #3b82f6; color: #dbeafe; }
+    .sub-dialog {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(12,10,9,0.92);
+      backdrop-filter: blur(4px);
+      z-index: 50;
+      flex-direction: column;
+      padding: 16px;
+    }
+    .sub-dialog.active { display: flex; }
+    .dialog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1.5px solid #44403c;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .dialog-title { font-size: 15px; font-weight: bold; color: #fef3c7; }
+    .close-btn {
+      background: #44403c;
+      border: none;
+      color: #fff;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .dialog-body { flex: 1; overflow-y: auto; }
+    .item-card {
+      background: #292524;
+      border: 1px solid #57534e;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .item-info h4 { font-size: 13px; color: #f5f5f4; margin-bottom: 3px; }
+    .item-info p { font-size: 11px; color: #a8a29e; }
+    .item-act-btn {
+      background: #d97706;
+      border: none;
+      color: #000;
+      font-weight: bold;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .item-act-btn:disabled { background: #57534e; color: #a8a29e; cursor: not-allowed; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  </style>
+</head>
+<body>
+
+<div class="panel-container">
+  <div class="top-bar">
+    <div class="date-badge">
+      <span>第</span>
+      <span id="txt-date">第1年 · 9月1日 傍晚</span>
+    </div>
+    <div class="money-badge">
+      <span>￥</span>
+      <span id="txt-money">320</span>
+    </div>
+  </div>
+
+  <div class="pet-screen">
+    <!-- 背景图：由角色卡里的「面板补图」脚本换成仓库地址；也可在这里直接填一个网络地址 -->
+    <img src="zhixia_rental_room.jpg" class="screen-bg" id="room-bg" alt="老屋">
+    <div class="room-tint" id="room-tint"></div>
+
+    <div class="bulb-fixture" onclick="toggleLight()">
+      <div class="bulb-cord"></div>
+      <div class="bulb-glass" id="bulb-lamp"></div>
+    </div>
+
+    <div class="zhixia-char-wrap" onclick="petZhixia()">
+      <div class="speech-bubble" id="speech-bubble">
+        “哥哥！你回来啦……今天外头风大，冷不冷？饭还热着呢，我用盘子扣在桌上了。”
+      </div>
+      <div class="char-sprite-box">
+        <!-- 立绘图：同上，由补图脚本换成仓库地址 -->
+        <img src="zhixia_character_art.jpg" alt="知夏">
+        <div class="sickness-tag" id="sickness-tag" style="display:none;">发烧中</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="vitals-bar">
+    <div class="vital-item">
+      <span class="vital-label">知夏饱食 <b id="val-hunger">70</b></span>
+      <div class="progress-track"><div class="progress-fill fill-hunger" id="bar-hunger" style="width: 70%;"></div></div>
+    </div>
+    <div class="vital-item">
+      <span class="vital-label">知夏心情 <b id="val-mood">60</b></span>
+      <div class="progress-track"><div class="progress-fill fill-mood" id="bar-mood" style="width: 60%;"></div></div>
+    </div>
+    <div class="vital-item">
+      <span class="vital-label">知夏健康 <b id="val-health">90</b></span>
+      <div class="progress-track"><div class="progress-fill fill-health" id="bar-health" style="width: 90%;"></div></div>
+    </div>
+    <div class="vital-item">
+      <span class="vital-label">哥哥体力 <b id="val-energy">80</b></span>
+      <div class="progress-track"><div class="progress-fill fill-energy" id="bar-energy" style="width: 80%;"></div></div>
+    </div>
+  </div>
+
+  <div class="action-grid">
+    <button class="act-btn primary" onclick="openDialog('feed')">
+      <span class="icon">喂</span>
+      <span>喂食</span>
+    </button>
+    <button class="act-btn primary" onclick="openDialog('care')">
+      <span class="icon">药</span>
+      <span>照料</span>
+    </button>
+    <button class="act-btn" onclick="openDialog('work')">
+      <span class="icon">工</span>
+      <span>出工</span>
+    </button>
+    <button class="act-btn" onclick="openDialog('shop')">
+      <span class="icon">市</span>
+      <span>市集</span>
+    </button>
+    <button class="act-btn green" onclick="sleepNight()">
+      <span class="icon">夜</span>
+      <span>安歇</span>
+    </button>
+    <button class="act-btn blue" onclick="openDialog('sync')">
+      <span class="icon">阅</span>
+      <span>数据</span>
+    </button>
+    <button class="act-btn" onclick="openDialog('pet')">
+      <span class="icon">陪</span>
+      <span>陪她</span>
+    </button>
+  </div>
+
+  <!-- 喂食弹窗 -->
+  <div class="sub-dialog" id="dlg-feed">
+    <div class="dialog-header">
+      <span class="dialog-title">老屋开饭 · 喂食知夏</span>
+      <button class="close-btn" onclick="closeDialog()">✕</button>
+    </div>
+    <div class="dialog-body" id="feed-list"></div>
+  </div>
+
+  <!-- 照料弹窗 -->
+  <div class="sub-dialog" id="dlg-care">
+    <div class="dialog-header">
+      <span class="dialog-title">照料医治 · 温水与药</span>
+      <button class="close-btn" onclick="closeDialog()">✕</button>
+    </div>
+    <div class="dialog-body" id="care-list"></div>
+  </div>
+
+  <!-- 出工打工弹窗 -->
+  <div class="sub-dialog" id="dlg-work">
+    <div class="dialog-header">
+      <span class="dialog-title">外出打工 · 零工挣钱</span>
+      <button class="close-btn" onclick="closeDialog()">✕</button>
+    </div>
+    <div class="dialog-body" id="work-list"></div>
+  </div>
+
+  <!-- 市集弹窗 -->
+  <div class="sub-dialog" id="dlg-shop">
+    <div class="dialog-header">
+      <span class="dialog-title">王婶小卖部与菜市</span>
+      <button class="close-btn" onclick="closeDialog()">✕</button>
+    </div>
+    <div class="dialog-body" id="shop-list"></div>
+  </div>
+
+  <!-- 陪她弹窗 -->
+  <div class="sub-dialog" id="dlg-pet">
+    <div class="dialog-header">
+      <span class="dialog-title">坐下来陪她说说话</span>
+      <button class="close-btn" onclick="closeDialog()">✕</button>
+    </div>
+    <div class="dialog-body" id="pet-list"></div>
+  </div>
+
+  <!-- 数据查看 -->
+  <div class="sub-dialog" id="dlg-sync">
+    <div class="dialog-header">
+      <span class="dialog-title">当前面板记下的数据</span>
+      <button class="close-btn" onclick="closeDialog()">✕</button>
+    </div>
+    <div class="dialog-body" style="font-family:monospace; font-size:11px; color:#d6d3d1; white-space:pre-wrap; word-break:break-all;" id="sync-content"></div>
+  </div>
+</div>
+
+<script>
+  /* 面板自己的存档。
+   * 现在这份数据只存在浏览器本地（localStorage），和角色卡的变量是两套。
+   * 要让正文跟着这些数字走，得再接一步把状态写回楼层变量，那一步还没有做。 */
+  const 存档键 = 'zhixia_panel_standalone_state';
+
+  let state = {
+    day: 1,
+    timeOfDay: '傍晚',
+    money: 320,
+    lightOn: true,
+    zhixia: { age: 8, hunger: 70, mood: 60, health: 90, affection: 40, sickness: '无', outfit: '旧毛衣' },
+    brother: { energy: 80, workedToday: false },
+    inventory: {
+      '热汤挂面': { count: 2, hunger: 25, mood: 10, price: 3 },
+      '剩菜热饭': { count: 1, hunger: 20, mood: 8, price: 0 },
+      '大白兔奶糖': { count: 1, hunger: 5, mood: 20, price: 1 },
+      '温开水': { count: 99, health: 5, mood: 5, price: 0 },
+      '退烧片': { count: 1, health: 30, price: 4, cure: '发烧' },
+      '湿毛巾': { count: 99, health: 10, price: 0, cure: '发烧' }
+    }
+  };
+
+  try {
+    const saved = localStorage.getItem(存档键);
+    if (saved) state = JSON.parse(saved);
+  } catch (e) {}
+
+  function saveState() {
+    try { localStorage.setItem(存档键, JSON.stringify(state)); } catch (e) {}
+    updateUI();
+  }
+
+  function updateUI() {
+    document.getElementById('txt-date').innerText = '第1年 · 9月' + state.day + '日 ' + state.timeOfDay;
+    document.getElementById('txt-money').innerText = state.money;
+    document.getElementById('val-hunger').innerText = state.zhixia.hunger;
+    document.getElementById('bar-hunger').style.width = state.zhixia.hunger + '%';
+    document.getElementById('val-mood').innerText = state.zhixia.mood;
+    document.getElementById('bar-mood').style.width = state.zhixia.mood + '%';
+    document.getElementById('val-health').innerText = state.zhixia.health;
+    document.getElementById('bar-health').style.width = state.zhixia.health + '%';
+    document.getElementById('val-energy').innerText = state.brother.energy;
+    document.getElementById('bar-energy').style.width = state.brother.energy + '%';
+    const sickTag = document.getElementById('sickness-tag');
+    sickTag.style.display = state.zhixia.sickness !== '无' ? 'block' : 'none';
+    sickTag.innerText = state.zhixia.sickness + '中';
+  }
+
+  function toggleLight() {
+    state.lightOn = !state.lightOn;
+    const bulb = document.getElementById('bulb-lamp');
+    const tint = document.getElementById('room-tint');
+    if (state.lightOn) {
+      bulb.classList.remove('off');
+      tint.style.background = 'radial-gradient(circle at 50% 20%, rgba(251,191,36,0.18) 0%, rgba(12,10,9,0.6) 80%)';
+    } else {
+      bulb.classList.add('off');
+      tint.style.background = 'rgba(0,0,0,0.65)';
+    }
+    saveState();
+  }
+
+  function petZhixia() {
+    state.zhixia.mood = Math.min(100, state.zhixia.mood + 6);
+    state.zhixia.affection = Math.min(100, state.zhixia.affection + 4);
+    const quotes = [
+      '知夏被摸了摸小脑袋，不好意思地抿着嘴笑，小手轻轻拉了拉你的袖口。',
+      '“哥哥！你手真暖和，今天在外头吹冷风冻着没？”',
+      '她仰起大眼睛看着你：“知夏有乖乖听话，碗都擦得干干净净了！”'
+    ];
+    document.getElementById('speech-bubble').innerText = quotes[Math.floor(Math.random() * quotes.length)];
+    saveState();
+  }
+
+  function sleepNight() {
+    state.day += 1;
+    state.brother.energy = 100;
+    state.brother.workedToday = false;
+    state.zhixia.hunger = Math.max(15, state.zhixia.hunger - 20);
+    state.timeOfDay = '清晨';
+    document.getElementById('speech-bubble').innerText = '“哥哥早！今天知夏起得早，把洗脸水都打好啦。”';
+    saveState();
+  }
+
+  function openDialog(type) {
+    closeDialog();
+    const dlg = document.getElementById('dlg-' + type);
+    if (!dlg) return;
+    if (type === 'feed') renderFeed();
+    if (type === 'care') renderCare();
+    if (type === 'work') renderWork();
+    if (type === 'shop') renderShop();
+    if (type === 'pet') renderPet();
+    if (type === 'sync') renderSync();
+    dlg.classList.add('active');
+  }
+
+  function closeDialog() {
+    document.querySelectorAll('.sub-dialog').forEach(d => d.classList.remove('active'));
+  }
+
+  function renderFeed() {
+    const list = document.getElementById('feed-list');
+    list.innerHTML = '';
+    ['热汤挂面', '剩菜热饭', '大白兔奶糖'].forEach(f => {
+      const item = state.inventory[f];
+      if (!item) return;
+      const row = document.createElement('div');
+      row.className = 'item-card';
+      row.innerHTML = `
+        <div class="item-info">
+          <h4>${f}（剩 ${item.count} 份）</h4>
+          <p>饱食 +${item.hunger || 0}，心情 +${item.mood || 0}</p>
+        </div>
+        <button class="item-act-btn" ${item.count <= 0 ? 'disabled' : ''} onclick="feed('${f}')">喂她吃</button>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  function feed(name) {
+    const item = state.inventory[name];
+    if (item && item.count > 0) {
+      item.count--;
+      state.zhixia.hunger = Math.min(100, state.zhixia.hunger + (item.hunger || 0));
+      state.zhixia.mood = Math.min(100, state.zhixia.mood + (item.mood || 0));
+      document.getElementById('speech-bubble').innerText = `知夏小口吃完了「${name}」：“哥哥，真好吃，你也吃一点！”`;
+      saveState();
+      renderFeed();
+    }
+  }
+
+  function renderCare() {
+    const list = document.getElementById('care-list');
+    list.innerHTML = '';
+    ['温开水', '退烧片', '湿毛巾'].forEach(m => {
+      const item = state.inventory[m];
+      if (!item) return;
+      const row = document.createElement('div');
+      row.className = 'item-card';
+      row.innerHTML = `
+        <div class="item-info">
+          <h4>${m}（${item.count > 50 ? '充足' : '剩 ' + item.count + ' 份'}）</h4>
+          <p>健康 +${item.health || 0}${item.cure ? '，针对' + item.cure : ''}</p>
+        </div>
+        <button class="item-act-btn" ${item.count <= 0 ? 'disabled' : ''} onclick="care('${m}')">照料</button>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  function care(name) {
+    const item = state.inventory[name];
+    if (item && item.count > 0) {
+      if (item.count <= 50) item.count--;
+      state.zhixia.health = Math.min(100, state.zhixia.health + (item.health || 0));
+      if (item.cure && state.zhixia.sickness === item.cure) {
+        state.zhixia.sickness = '无';
+      }
+      document.getElementById('speech-bubble').innerText = `知夏用了「${name}」，小声说：“哥哥不用替我花钱买药，知夏已经好受很多啦。”`;
+      saveState();
+      renderCare();
+    }
+  }
+
+  function renderWork() {
+    const list = document.getElementById('work-list');
+    list.innerHTML = '';
+    const jobs = [
+      { name: '城东工地 · 搬料配重', pay: 55, cost: 35 },
+      { name: '巷口饭店 · 后厨备菜', pay: 40, cost: 25 },
+      { name: '夜市窄巷 · 送货出工', pay: 60, cost: 30 }
+    ];
+    jobs.forEach(j => {
+      const can = state.brother.energy >= j.cost && !state.brother.workedToday;
+      const row = document.createElement('div');
+      row.className = 'item-card';
+      row.innerHTML = `
+        <div class="item-info">
+          <h4>${j.name}</h4>
+          <p>日结 ￥${j.pay}，体力 -${j.cost}</p>
+        </div>
+        <button class="item-act-btn" ${!can ? 'disabled' : ''} onclick="doWork(${j.pay}, ${j.cost})">接活出工</button>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  function doWork(pay, cost) {
+    state.money += pay;
+    state.brother.energy = Math.max(0, state.brother.energy - cost);
+    state.brother.workedToday = true;
+    document.getElementById('speech-bubble').innerText = `“哥哥今天辛苦了！兜里结了 ￥${pay}，快坐下歇歇脚，我给你盛饭。”`;
+    saveState();
+    closeDialog();
+  }
+
+  function renderShop() {
+    const list = document.getElementById('shop-list');
+    list.innerHTML = '';
+    const wares = [
+      { name: '热汤挂面', price: 3 },
+      { name: '大白兔奶糖', price: 1 },
+      { name: '退烧片', price: 4 }
+    ];
+    wares.forEach(w => {
+      const can = state.money >= w.price;
+      const row = document.createElement('div');
+      row.className = 'item-card';
+      row.innerHTML = `
+        <div class="item-info">
+          <h4>${w.name}</h4>
+          <p>单价 ￥${w.price}</p>
+        </div>
+        <button class="item-act-btn" ${!can ? 'disabled' : ''} onclick="buy('${w.name}', ${w.price})">买一份</button>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  function buy(name, price) {
+    if (state.money >= price) {
+      state.money -= price;
+      if (!state.inventory[name]) state.inventory[name] = { count: 0 };
+      state.inventory[name].count++;
+      saveState();
+      renderShop();
+    }
+  }
+
+  function renderPet() {
+    const list = document.getElementById('pet-list');
+    list.innerHTML = '';
+    const 事 = [
+      { name: '坐在她旁边，听她讲今天的事', mood: 12, affection: 3 },
+      { name: '陪她把作业写完', mood: 10, affection: 4 },
+      { name: '一块儿去楼下走走', mood: 14, affection: 2 }
+    ];
+    事.forEach(x => {
+      const row = document.createElement('div');
+      row.className = 'item-card';
+      row.innerHTML = `
+        <div class="item-info">
+          <h4>${x.name}</h4>
+          <p>心情 +${x.mood}，依赖 +${x.affection}</p>
+        </div>
+        <button class="item-act-btn" onclick="陪她('${x.name}', ${x.mood}, ${x.affection})">就这样</button>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  function 陪她(名, 心情, 依赖) {
+    state.zhixia.mood = Math.min(100, state.zhixia.mood + 心情);
+    state.zhixia.affection = Math.min(100, state.zhixia.affection + 依赖);
+    document.getElementById('speech-bubble').innerText = `你${名}。她话多了起来，说到一半自己先笑了。`;
+    saveState();
+    closeDialog();
+  }
+
+  function renderSync() {
+    const mvu = {
+      时间: { 日: state.day, 时段: state.timeOfDay },
+      钱: state.money,
+      哥哥: { 体力: state.brother.energy, 今日已打工: state.brother.workedToday ? 1 : 0 },
+      妹妹: {
+        年龄: state.zhixia.age,
+        饥饿: state.zhixia.hunger,
+        心情: state.zhixia.mood,
+        健康: state.zhixia.health,
+        依赖: state.zhixia.affection,
+        病症: state.zhixia.sickness
+      }
+    };
+    document.getElementById('sync-content').innerText = JSON.stringify(mvu, null, 2);
+  }
+
+  updateUI();
+</script>
+</body>
+</html>
