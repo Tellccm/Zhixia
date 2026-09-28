@@ -216,19 +216,24 @@
       border-right: 1.5px solid #b45309;
       border-bottom: 1.5px solid #b45309;
     }
+    /* 立绘框只负责占位与点击，不出画框：图是透明背景的立绘，直接贴在屋子的背景上。
+       不再有边框、圆角、底色和投影，否则会像贴了一张相片。 */
     .char-sprite-box {
-      width: 140px;
-      height: 190px;
-      border-radius: 18px;
-      overflow: hidden;
-      border: 3px solid #b45309;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      width: 210px;
+      height: 300px;
       position: relative;
-      background: #1c1917;
+      background: none;
+      border: none;
       transition: transform 0.2s;
     }
-    .char-sprite-box:active { transform: scale(0.96); }
-    .char-sprite-box img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+    .char-sprite-box:active { transform: scale(0.97); }
+    .char-sprite-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: bottom center;
+    }
+    /* 立绘还没放进来时给一块淡虚线的位置提示，图一到位就没了。 */
     .char-sprite-box .no-art {
       position: absolute;
       inset: 0;
@@ -236,15 +241,17 @@
       align-items: center;
       justify-content: center;
       font-size: 12px;
-      color: #78716c;
+      color: #57534e;
       text-align: center;
       line-height: 1.6;
       padding: 10px;
+      border: 1px dashed #44403c;
+      border-radius: 10px;
     }
     .sickness-tag {
       position: absolute;
-      top: 6px;
-      right: 6px;
+      top: 34px;
+      right: 10px;
       background: #dc2626;
       color: #fff;
       font-size: 10px;
@@ -502,7 +509,7 @@
       <div class="pet-heart" id="pet-heart">♥</div>
       <div class="speech-bubble" id="speech-bubble">“哥哥！你回来啦……”</div>
       <div class="char-sprite-box">
-        <img src="zhixia_character_art.jpg" alt="知夏" id="char-art">
+        <img src="zhixia_character_art.png" alt="" id="char-art">
         <div class="no-art" id="no-art" style="display:none">立绘还没放进来。<br>把图放进仓库的这个目录即可。</div>
         <div class="sickness-tag" id="sickness-tag" style="display:none;">发烧中</div>
       </div>
