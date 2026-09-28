@@ -809,8 +809,9 @@
     心.classList.add('跳');
 
     // 摸够了也照样有反应，只是话不一样。
+    // 气泡里只放她的话，不写「她被你摸得有点不好意思了」这类旁白。
     document.getElementById('speech-bubble').innerText =
-      加 > 0 ? 闲话[Math.floor(Math.random() * 闲话.length)] : '她被你摸得有点不好意思了：“哥，你摸够没有呀。”';
+      加 > 0 ? 闲话[Math.floor(Math.random() * 闲话.length)] : '“哥，你摸够没有呀。”';
     updateUI();
   }
 
@@ -829,7 +830,7 @@
     const 前 = Number(数据.哥哥.体力 ?? 0);
     数据.哥哥.体力 = 钳(前 + 12);
     写变量();
-    document.getElementById('speech-bubble').innerText = '你在床边坐了会儿。' + 此刻的话();
+    document.getElementById('speech-bubble').innerText = 此刻的话();
     提示('歇了一会儿，体力 +' + (数据.哥哥.体力 - 前) + '。');
     updateUI();
   }
@@ -887,7 +888,7 @@
     数据.妹妹.心情 = 钳((数据.妹妹.心情 ?? 60) + 货.心情);
     记今天的账('喂过');
     写变量();
-    document.getElementById('speech-bubble').innerText = '知夏小口吃完了「' + 名 + '」：“哥哥，真好吃，你也吃一点！”';
+    document.getElementById('speech-bubble').innerText = '“哥哥，真好吃，你也吃一点！”';
     提示('喂了她' + 名 + '，饱食 +' + 货.饥饿 + '。今天还能喂 ' + 今日额度().喂 + ' 回。');
     updateUI();
     renderFeed();
@@ -928,7 +929,7 @@
     记今天的账('药过');
     写变量();
     document.getElementById('speech-bubble').innerText =
-      '知夏用了「' + 名 + '」，小声说：“哥哥不用替我花钱买药，知夏已经好受很多啦。”';
+      '“哥哥不用替我花钱买药，知夏已经好受很多啦。”';
     提示('用了' + 名 + '，健康 +' + 货.健康 + '。今天还能照顾 ' + 今日额度().药 + ' 回。');
     updateUI();
     renderCare();
