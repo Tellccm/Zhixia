@@ -102,10 +102,12 @@
       color: #fcd34d;
     }
     .notice.show { display: block; }
+    /* 宠物屏吃掉中间所有的空余高度：楼层 iframe 高多少，它就长多少。
+       min-height 只兜住极矮的情况，不给上限，所以不会在下面留一条黑边。 */
     .pet-screen {
       position: relative;
       flex: 1 1 auto;
-      min-height: 240px;
+      min-height: 300px;
       background: #0c0a09;
       overflow: hidden;
       cursor: pointer;
@@ -212,6 +214,8 @@
     .char-sprite-box {
       width: 140px;
       height: 190px;
+      /* 屏幕高的时候立绘跟着长一点，矮的时候也不会被挤出画面 */
+      max-height: min(240px, 34vh);
       border-radius: 18px;
       overflow: hidden;
       border: 3px solid #b45309;
@@ -288,6 +292,8 @@
       gap: 8px;
       padding: 12px;
       background: #1c1917;
+      /* 五个按钮摆在四列里，第二行只剩一格时让它自己不撑宽 */
+      align-content: start;
     }
     .act-btn {
       background: #292524;
@@ -468,9 +474,9 @@
       <span class="icon">市</span>
       <span>买点东西</span>
     </button>
-    <button class="act-btn blue" onclick="openDialog('sync')">
-      <span class="icon">阅</span>
-      <span>数据</span>
+    <button class="act-btn green" onclick="歇一会儿()">
+      <span class="icon">歇</span>
+      <span>歇口气</span>
     </button>
   </div>
 
@@ -510,14 +516,7 @@
     <div class="dialog-body" id="shop-list"></div>
   </div>
 
-  <!-- 数据查看 -->
-  <div class="sub-dialog" id="dlg-sync">
-    <div class="dialog-header">
-      <span class="dialog-title">角色卡里的变量</span>
-      <button class="close-btn" onclick="closeDialog()">✕</button>
-    </div>
-    <div class="dialog-body" style="font-family:monospace; font-size:11px; color:#d6d3d1; white-space:pre-wrap; word-break:break-all;" id="sync-content"></div>
-  </div>
+  <!-- 一天的活干完了，坐下来歇口气。回一点体力，半小时一次，不能一直歇。 -->
 </div>
 
 <script>
@@ -801,6 +800,26 @@
     updateUI();
   }
 
+  /** 歇口气：回一点体力。半小时一次，不能一直歇。 */
+  let 上次歇 = 0;
+  function 歇一会儿() {
+    const 现在 = Date.now();
+    const 间隔 = 30 * 60 * 1000;
+    if (现在 - 上次歇 < 间隔) {
+      const 余 = Math.ceil((间隔 - (现在 - 上次歇)) / 60000);
+      提示('刚歇过。' + 余 + ' 分钟后再歇。', 3000);
+      return;
+    }
+    上次歇 = 现在;
+    const 数据 = 读变量();
+    const 前 = Number(数据.哥哥.体力 ?? 0);
+    数据.哥哥.体力 = 钳(前 + 12);
+    写变量();
+    document.getElementById('speech-bubble').innerText = '你在床边坐了会儿。' + 此刻的话();
+    提示('歇了一会儿，体力 +' + (数据.哥哥.体力 - 前) + '。');
+    updateUI();
+  }
+
   function openDialog(type) {
     closeDialog();
     const 框 = document.getElementById('dlg-' + type);
@@ -809,7 +828,6 @@
     if (type === 'care') renderCare();
     if (type === 'work') renderWork();
     if (type === 'shop') renderShop();
-    if (type === 'sync') renderSync();
     框.classList.add('active');
   }
 
@@ -972,11 +990,6 @@
 
   /* 陪她这件事没有按钮。想陪她就自己在正文里说话、做事。
      面板只做喂她、给她用药、买东西、出工这几件「动手」的事。 */
-
-  function renderSync() {
-    const 数据 = 读变量();
-    document.getElementById('sync-content').innerText = JSON.stringify(数据, null, 2);
-  }
 
   /* ── 起手 ───────────────────────────────── */
 
