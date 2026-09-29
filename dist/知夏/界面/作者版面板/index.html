@@ -3492,6 +3492,21 @@
   /* ── 起手 ───────────────────────────────── */
 
   function 起手() {
+    // 面板挂在每一条 AI 回复的末尾（见角色卡里那条〔界面〕养成面板正则），
+    // 但只有最新那一层该露出来。酒馆助手的渲染深度默认是 2，只渲染最新两层，
+    // 面板要是挂在开场白上，跑一轮就滚出渲染窗口、整块消失。
+    // 所以这里是「每条都挂、只显示最新的那一层」：其余的把自己藏掉。
+    try {
+      const 本层 = typeof getCurrentMessageId === 'function' ? getCurrentMessageId() : -1;
+      const 最新层 = typeof getLastMessageId === 'function' ? getLastMessageId() : -1;
+      if (本层 !== -1 && 最新层 !== -1 && 本层 !== 最新层) {
+        document.body.style.display = 'none';
+        return;
+      }
+    } catch {
+      /* 取不到楼层号（比如在本地预览里跑）就照常画，别把面板整成空白 */
+    }
+
     // 到点了先把货补齐，再画界面，免得先画出上一轮的旧存货。
     看进货(true);
     updateUI();
